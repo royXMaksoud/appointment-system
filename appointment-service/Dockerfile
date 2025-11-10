@@ -7,9 +7,9 @@ RUN mvn clean install -DskipTests -B
 FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
 COPY --from=build-shared-lib /root/.m2 /root/.m2
-COPY appointment-service/pom.xml .
-RUN mvn dependency:go-offline -B || true
-COPY appointment-service/src ./src
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+COPY src ./src
 RUN mvn clean package -DskipTests -B
 
 FROM eclipse-temurin:17-jre-alpine

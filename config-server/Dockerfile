@@ -1,8 +1,8 @@
 FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
-COPY config-server/pom.xml .
-RUN mvn dependency:go-offline -B || true
-COPY config-server/src ./src
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+COPY src ./src
 RUN mvn clean package -DskipTests -B
 
 FROM eclipse-temurin:17-jre-alpine

@@ -17,10 +17,10 @@ WORKDIR /app
 
 COPY --from=build-shared-lib /root/.m2 /root/.m2
 
-COPY auth-service/pom.xml .
-RUN mvn dependency:go-offline -B || true
-COPY auth-service/src ./src
-RUN mvn clean package -Dmaven.test.skip=true -DskipTests=true -B
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+COPY src ./src
+RUN mvn clean package -DskipTests -B
 
 
 
