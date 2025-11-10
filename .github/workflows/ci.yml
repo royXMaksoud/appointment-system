@@ -84,7 +84,7 @@ jobs:
               docker build \
                 -t $REGISTRY/$IMAGE_OWNER/$service:latest \
                 -t $REGISTRY/$IMAGE_OWNER/$service:$COMMIT_SHA \
-                . -f $service/Dockerfile
+                $service -f $service/Dockerfile
               docker push $REGISTRY/$IMAGE_OWNER/$service:latest
               docker push $REGISTRY/$IMAGE_OWNER/$service:$COMMIT_SHA
             else
