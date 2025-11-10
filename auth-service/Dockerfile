@@ -1,11 +1,13 @@
 # ===========================
-# Stage 1: Build shared library
+# Stage 1: Build shared library (from project root)
 # ===========================
 FROM maven:3.9.6-eclipse-temurin-17 AS build-shared-lib
-WORKDIR /shared-lib
+WORKDIR /build
 
-COPY shared-libs/pom.xml ./pom.xml
-COPY shared-libs/src ./src
+# Copy only the shared-libs part from the main repo context
+COPY ./shared-libs ./shared-libs
+
+WORKDIR /build/shared-libs
 RUN mvn clean install -DskipTests -B
 
 
@@ -15,13 +17,15 @@ RUN mvn clean install -DskipTests -B
 FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
 
+# Copy the cached Maven dependencies from previous stage
 COPY --from=build-shared-lib /root/.m2 /root/.m2
 
-COPY pom.xml .
+# Copy only the auth-service source
+COPY ./auth-service/pom.xml ./pom.xml
 RUN mvn dependency:go-offline -B
-COPY src ./src
-RUN mvn clean package -DskipTests -B
 
+COPY ./auth-service/src ./src
+RUN mvn clean package -DskipTests -B
 
 
 # ===========================
