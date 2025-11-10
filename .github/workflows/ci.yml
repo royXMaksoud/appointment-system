@@ -31,7 +31,7 @@ jobs:
       # 3️⃣ Build shared library (core-shared-lib)
       - name: Build shared library
         run: |
-          cd shared-libs/core-shared-lib/core-shared-lib
+          cd shared-libs
           mvn clean install -DskipTests -B
 
       # 4️⃣ Build all microservices (skip reference-data)
