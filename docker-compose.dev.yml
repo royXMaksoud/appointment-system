@@ -1,16 +1,155 @@
-version: '3.8'
+version: '3.9'
 
 services:
+  # =========================
+  # PostgreSQL Database
+  # =========================
   postgres:
-    image: postgis/postgis:17-3.4-alpine
+    image: postgres:15-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cms_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: P@ssw0rd
     ports:
       - "5432:5432"
-    environment:
-      POSTGRES_DB: care_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - care-network
 
+  # =========================
+  # Eureka Service Registry
+  # =========================
+  service-registry:
+    build:
+      context: .
+      dockerfile: service-registry/Dockerfile
+    container_name: service-registry
+    ports:
+      - "8761:8761"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - postgres
+    networks:
+      - care-network
+
+  # =========================
+  # Config Server
+  # =========================
+  config-server:
+    build:
+      context: .
+      dockerfile: config-server/Dockerfile
+    container_name: config-server
+    ports:
+      - "8888:8888"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
+    depends_on:
+      - service-registry
+    networks:
+      - care-network
+
+  # =========================
+  # Auth Service
+  # =========================
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+    container_name: auth-service
+    ports:
+      - "6061:6061"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cms_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: P@ssw0rd
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
+    depends_on:
+      - postgres
+      - service-registry
+      - config-server
+    networks:
+      - care-network
+
+  # =========================
+  # Access Management Service
+  # =========================
+  access-management-service:
+    build:
+      context: .
+      dockerfile: access-management-service/Dockerfile
+    container_name: access-management-service
+    ports:
+      - "6062:6062"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cms_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: P@ssw0rd
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
+    depends_on:
+      - auth-service
+      - postgres
+      - service-registry
+    networks:
+      - care-network
+
+  # =========================
+  # Appointment Service
+  # =========================
+  appointment-service:
+    build:
+      context: .
+      dockerfile: appointment-service/Dockerfile
+    container_name: appointment-service
+    ports:
+      - "6064:6064"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/appointment_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: P@ssw0rd
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
+    depends_on:
+      - auth-service
+      - access-management-service
+      - postgres
+    networks:
+      - care-network
+
+  # =========================
+  # Gateway Service
+  # =========================
+  gateway-service:
+    build:
+      context: .
+      dockerfile: gateway-service/Dockerfile
+    container_name: gateway-service
+    ports:
+      - "6060:6060"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
+    depends_on:
+      - service-registry
+      - auth-service
+      - access-management-service
+      - appointment-service
+    networks:
+      - care-network
+
+# =========================
+# Volumes and Networks
+# =========================
 volumes:
   postgres_data:
+
+networks:
+  care-network:
+    driver: bridge

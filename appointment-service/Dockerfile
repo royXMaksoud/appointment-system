@@ -1,39 +1,27 @@
-# Multi-stage build for appointment-service
+FROM maven:3.9.6-eclipse-temurin-17 AS build-shared-lib
+WORKDIR /shared-lib
+COPY shared-libs/pom.xml ./pom.xml
+COPY shared-libs/src ./src
+RUN mvn clean install -DskipTests -B
 
-# Stage 1: Build
-FROM maven:3.9-eclipse-temurin-17 AS build
+FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
+COPY --from=build-shared-lib /root/.m2 /root/.m2
+COPY appointment-service/pom.xml .
+RUN mvn dependency:go-offline -B || true
+COPY appointment-service/src ./src
+RUN mvn clean package -DskipTests -B
 
-# Copy pom.xml and download dependencies
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
-
-# Copy source code and build
-COPY src ./src
-RUN mvn clean package -DskipTests
-
-# Stage 2: Runtime
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-
-# Create non-root user
+RUN apk add --no-cache wget
 RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring
-
-# Copy jar from build stage
-COPY --from=build /app/target/appointment-service-*.jar app.jar
-
-# Expose port
+COPY --from=build /app/target/*.jar app.jar
+ENV JAVA_OPTS="-Xmx512m -Xms256m" \
+    SERVER_PORT=6064 \
+    SPRING_PROFILES_ACTIVE=docker
 EXPOSE 6064
-
-# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:6064/actuator/health || exit 1
-
-# Run the application
-ENTRYPOINT ["java", \
-  "-XX:+UseContainerSupport", \
-  "-XX:MaxRAMPercentage=75.0", \
-  "-Djava.security.egd=file:/dev/./urandom", \
-  "-jar", "app.jar"]
-
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

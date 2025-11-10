@@ -1,0 +1,169 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgis/postgis:17-3.4-alpine
+    container_name: care-postgres
+    environment:
+      POSTGRES_DB: care_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: P@ssw0rd
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - care-network
+
+  # Config Server
+  config-server:
+    build:
+      context: ./infrastructure/config-server
+    container_name: config-server
+    ports:
+      - "8888:8888"
+    networks:
+      - care-network
+    environment:
+      - SPRING_PROFILES_ACTIVE=native
+
+  # Service Registry (Eureka)
+  service-registry:
+    build:
+      context: ./infrastructure/service-registry
+    container_name: service-registry
+    ports:
+      - "8761:8761"
+    networks:
+      - care-network
+    depends_on:
+      - config-server
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ./services/auth-service
+    container_name: auth-service
+    ports:
+      - "8081:8080"
+    networks:
+      - care-network
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/care_db
+      - CONFIG_SERVER_URL=http://config-server:8888
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+    depends_on:
+      - postgres
+      - config-server
+      - service-registry
+
+  # Appointment Service
+  appointment-service:
+    build:
+      context: ./services/appointment-service
+    container_name: appointment-service
+    ports:
+      - "8082:8080"
+    networks:
+      - care-network
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/care_db
+      - CONFIG_SERVER_URL=http://config-server:8888
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+    depends_on:
+      - postgres
+      - config-server
+      - service-registry
+      - auth-service
+
+  # Access Management Service
+  access-management-service:
+    build:
+      context: ./services/access-management-service
+    container_name: access-management-service
+    ports:
+      - "8083:8080"
+    networks:
+      - care-network
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/care_db
+      - CONFIG_SERVER_URL=http://config-server:8888
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+    depends_on:
+      - postgres
+      - config-server
+      - service-registry
+
+  # Gateway Service
+  gateway-service:
+    build:
+      context: ./services/gateway-service
+    container_name: gateway-service
+    ports:
+      - "8080:8080"
+    networks:
+      - care-network
+    environment:
+      - CONFIG_SERVER_URL=http://config-server:8888
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+    depends_on:
+      - service-registry
+      - auth-service
+      - appointment-service
+      - access-management-service
+
+  # Data Analysis Service
+  data-analysis-service:
+    build:
+      context: ./services/data-analysis-service
+    container_name: data-analysis-service
+    ports:
+      - "8084:8080"
+    networks:
+      - care-network
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/care_db
+      - CONFIG_SERVER_URL=http://config-server:8888
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+    depends_on:
+      - postgres
+      - config-server
+      - service-registry
+
+  # Reference Data Service
+  reference-data-service:
+    build:
+      context: ./services/reference-data-service
+    container_name: reference-data-service
+    ports:
+      - "8085:8080"
+    networks:
+      - care-network
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/care_db
+      - CONFIG_SERVER_URL=http://config-server:8888
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://service-registry:8761/eureka
+    depends_on:
+      - postgres
+      - config-server
+      - service-registry
+
+  # Web Portal (React)
+  web-portal:
+    build:
+      context: ./frontend/web-portal
+    container_name: web-portal
+    ports:
+      - "3000:80"
+    networks:
+      - care-network
+    depends_on:
+      - gateway-service
+
+volumes:
+  postgres_data:
+
+networks:
+  care-network:
+    driver: bridge
