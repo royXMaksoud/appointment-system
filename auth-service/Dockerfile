@@ -22,6 +22,7 @@ COPY --from=build-shared-lib /root/.m2 /root/.m2
 # ✅ Copy entire project so Docker sees all folders
 COPY . .
 
+# Move into auth-service and build
 WORKDIR /app/auth-service
 RUN mvn clean package -DskipTests -B
 
