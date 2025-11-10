@@ -16,11 +16,11 @@ jobs:
       MAVEN_OPTS: "-Dmaven.test.skip=true"
 
     steps:
-      # 1️⃣ Checkout the repository
+      # 1️⃣ Checkout source
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup JDK 17
+      # 2️⃣ Set up JDK 17
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -28,16 +28,18 @@ jobs:
           java-version: 17
           cache: maven
 
-      # 3️⃣ Build shared library (core-shared-lib)
+      # 3️⃣ Build shared library (shared-libs)
       - name: Build shared library
         run: |
+          echo "Building shared-libs..."
           cd shared-libs
           mvn clean install -DskipTests -B
+          cd ..
 
-      # 4️⃣ Build all microservices (skip reference-data)
+      # 4️⃣ Build all microservices
       - name: Build microservices
         run: |
-          for dir in service-registry config-server auth-service access-management-service appointment-service gateway-service; do
+          for dir in service-registry config-server auth-service access-management-service appointment-service gateway-service data-analysis-service; do
             echo "Building $dir..."
             cd $dir
             mvn clean package -DskipTests -B
@@ -56,11 +58,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 7️⃣ Build & Push each microservice as Docker image
+      # 7️⃣ Build & Push Docker images for each microservice
       - name: Build and push Docker images
         run: |
-          for service in service-registry config-server auth-service access-management-service appointment-service gateway-service; do
-            echo "Building image for $service"
-            docker build -f $service/Dockerfile -t $REGISTRY/$IMAGE_OWNER/$service:latest .
+          COMMIT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
+          for service in service-registry config-server auth-service access-management-service appointment-service gateway-service data-analysis-service; do
+            echo "Building and pushing image for $service..."
+            docker build -t $REGISTRY/$IMAGE_OWNER/$service:latest -t $REGISTRY/$IMAGE_OWNER/$service:$COMMIT_SHA $service
             docker push $REGISTRY/$IMAGE_OWNER/$service:latest
+            docker push $REGISTRY/$IMAGE_OWNER/$service:$COMMIT_SHA
           done
