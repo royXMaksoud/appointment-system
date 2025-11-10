@@ -19,11 +19,10 @@ WORKDIR /app
 # Copy cached Maven dependencies
 COPY --from=build-shared-lib /root/.m2 /root/.m2
 
-# Copy pom and source from auth-service directory
-COPY ./auth-service/pom.xml ./pom.xml
-COPY ./auth-service/src ./src
+# ✅ Copy entire project so Docker sees all folders
+COPY . .
 
-RUN mvn dependency:go-offline -B
+WORKDIR /app/auth-service
 RUN mvn clean package -DskipTests -B
 
 
@@ -37,7 +36,7 @@ RUN apk add --no-cache wget
 RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring
 
-COPY --from=build /app/target/*.jar app.jar
+COPY --from=build /app/auth-service/target/*.jar app.jar
 
 ENV JAVA_OPTS="-Xmx512m -Xms256m" \
     SERVER_PORT=6061 \

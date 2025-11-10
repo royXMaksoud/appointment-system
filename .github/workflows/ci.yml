@@ -19,6 +19,8 @@ jobs:
       # 1️⃣ Checkout source
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # 2️⃣ Set up JDK 17
       - name: Set up JDK 17
@@ -68,14 +70,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 8️⃣ Build & Push Docker images
+      # 8️⃣ Build & Push Docker images (context = project root)
       - name: Build and push Docker images
         run: |
           COMMIT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
           for service in service-registry config-server auth-service access-management-service appointment-service gateway-service data-analysis-service; do
             if [ -f "$service/Dockerfile" ]; then
               echo "Building and pushing image for $service..."
-              docker build -t $REGISTRY/$IMAGE_OWNER/$service:latest -t $REGISTRY/$IMAGE_OWNER/$service:$COMMIT_SHA . -f $service/Dockerfile
+              docker build \
+                -t $REGISTRY/$IMAGE_OWNER/$service:latest \
+                -t $REGISTRY/$IMAGE_OWNER/$service:$COMMIT_SHA \
+                . -f $service/Dockerfile
               docker push $REGISTRY/$IMAGE_OWNER/$service:latest
               docker push $REGISTRY/$IMAGE_OWNER/$service:$COMMIT_SHA
             else
