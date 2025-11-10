@@ -19,7 +19,7 @@ WORKDIR /app
 # Copy cached Maven dependencies
 COPY --from=build-shared-lib /root/.m2 /root/.m2
 
-# ✅ Copy entire project so Docker sees all folders
+# ✅ Copy the entire repo so Docker sees all folders
 COPY . .
 
 # Move into auth-service and build
