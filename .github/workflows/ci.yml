@@ -28,26 +28,26 @@ jobs:
           java-version: 17
           cache: maven
 
-      # 3️⃣ Debug folder structure (optional but helpful)
+      # 3️⃣ Debug folder structure
       - name: Debug folder structure
         run: |
           echo "Current directory:"
           pwd
           echo "Contents:"
-          ls -R publish
+          ls -R
 
-      # 4️⃣ Build shared library (inside publish)
+      # 4️⃣ Build shared library
       - name: Build shared library
         run: |
           echo "Building shared-libs..."
-          cd publish/shared-libs
+          cd shared-libs
           mvn clean install -DskipTests -B
-          cd ../..
+          cd ..
 
-      # 5️⃣ Build all microservices (inside publish)
+      # 5️⃣ Build all microservices
       - name: Build microservices
         run: |
-          for dir in publish/service-registry publish/config-server publish/auth-service publish/access-management-service publish/appointment-service publish/gateway-service publish/data-analysis-service; do
+          for dir in service-registry config-server auth-service access-management-service appointment-service gateway-service data-analysis-service; do
             if [ -f "$dir/pom.xml" ]; then
               echo "Building $dir..."
               (cd $dir && mvn clean package -DskipTests -B)
@@ -68,15 +68,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 8️⃣  & Push Docker images for each microservice
+      # 8️⃣ Build & Push Docker images
       - name: Build and push Docker images
         run: |
           COMMIT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
           for service in service-registry config-server auth-service access-management-service appointment-service gateway-service data-analysis-service; do
-            SERVICE_PATH="publish/$service"
-            if [ -f "$SERVICE_PATH/Dockerfile" ]; then
+            if [ -f "$service/Dockerfile" ]; then
               echo "Building and pushing image for $service..."
-              docker build -t $REGISTRY/$IMAGE_OWNER/$service:latest -t $REGISTRY/$IMAGE_OWNER/$service:$COMMIT_SHA $SERVICE_PATH
+              docker build -t $REGISTRY/$IMAGE_OWNER/$service:latest -t $REGISTRY/$IMAGE_OWNER/$service:$COMMIT_SHA $service
               docker push $REGISTRY/$IMAGE_OWNER/$service:latest
               docker push $REGISTRY/$IMAGE_OWNER/$service:$COMMIT_SHA
             else
