@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(mvn clean compile spring-boot:run:*)",
+      "Bash(mvn clean install:*)",
+      "Bash(mvn spring-boot:run:*)",
+      "Bash(timeout 30 mvn spring-boot:run:*)",
+      "Bash(curl:*)",
+      "Bash(timeout 120 mvn spring-boot:run:*)",
+      "Bash(mvn:*)",
+      "Bash(netstat:*)",
+      "Bash(ss:*)",
+      "Bash(timeout 180 mvn spring-boot:run)",
+      "Bash(pkill:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

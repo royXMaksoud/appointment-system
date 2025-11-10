@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(nul)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(awk:*)",
+      "Bash(git stash:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(tree:*)",
+      "Bash(rm:*)",
+      "Bash(mvn clean install:*)",
+      "Bash(jar tf:*)",
+      "Bash(for service in \"reference-data-service\" \"gateway-service\" \"data-analysis-service\")",
+      "Bash(do if [ -d \"c:\\Java\\care\\Code$service\" ])",
+      "Bash(then echo \"Rebuilding $service...\" cd \"c:\\Java\\care\\Code$service\")",
+      "Bash(find:*)",
+      "Bash(mvn clean compile:*)",
+      "Bash(\"C:\\Java\\care\\Code\\shared-libs\\core-shared-lib\\core-shared-lib\")",
+      "Bash(git rev-parse:*)",
+      "Bash(git update-index:*)",
+      "Bash(cat:*)",
+      "Bash(git config:*)",
+      "Bash(mvn spring-boot:run:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

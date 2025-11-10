@@ -1,0 +1,244 @@
+server:
+  port: 6061
+
+spring:
+  application:
+    name: auth-service
+  web:
+    resources:
+      add-mappings: false
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:cms_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:P@ssw0rd}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    try-it-out-enabled: true
+    operationsSorter: method
+  default-produces-media-type: application/json
+
+jwt:
+  secret: ${JWT_SECRET:SuperSecureKeyThatIsAtLeast64CharactersLongToAvoidWeakKeyException1234567890}
+  expiration: ${JWT_EXPIRATION:86400000}
+  refreshExpiration: ${JWT_REFRESH_EXPIRATION:2592000000}
+
+permission:
+  base-url: http://access-management-service
+  user-permissions-path: /api/permissions/users
+  internal-key: dev-internal-key
+  connect-timeout-ms: 1000
+  read-timeout-ms: 3000
+
+cache:
+  permissions-ttl-seconds: 900
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 30s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+        recordExceptions:
+          - org.springframework.web.client.HttpServerErrorException
+          - java.util.concurrent.TimeoutException
+          - java.io.IOException
+        ignoreExceptions:
+          - org.springframework.web.client.HttpClientErrorException
+    instances:
+      permissionService:
+        baseConfig: default
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        slowCallRateThreshold: 100
+        slowCallDurationThreshold: 3000ms
+      accessManagementService:
+        baseConfig: default
+        slidingWindowSize: 15
+        failureRateThreshold: 60
+      externalApi:
+        baseConfig: default
+        slidingWindowSize: 20
+        failureRateThreshold: 40
+        waitDurationInOpenState: 60s
+      authService:
+        baseConfig: default
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        ignoreExceptions:
+          - com.ftp.authservice.exception.InvalidCredentialsException
+
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 1000
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - org.springframework.web.client.ResourceAccessException
+          - java.util.concurrent.TimeoutException
+          - java.io.IOException
+        ignoreExceptions:
+          - org.springframework.web.client.HttpClientErrorException
+    instances:
+      permissionService:
+        baseConfig: default
+        maxAttempts: 3
+        waitDuration: 1s
+      accessManagementService:
+        baseConfig: default
+        maxAttempts: 4
+        waitDuration: 500ms
+      externalApi:
+        baseConfig: default
+        maxAttempts: 5
+        waitDuration: 2s
+      authService:
+        baseConfig: default
+        maxAttempts: 3
+        waitDuration: 1s
+        ignoreExceptions:
+          - com.ftp.authservice.exception.InvalidCredentialsException
+
+  bulkhead:
+    configs:
+      default:
+        maxConcurrentCalls: 10
+        maxWaitDuration: 1000ms
+    instances:
+      permissionService:
+        baseConfig: default
+        maxConcurrentCalls: 20
+      accessManagementService:
+        baseConfig: default
+        maxConcurrentCalls: 15
+      externalApi:
+        baseConfig: default
+        maxConcurrentCalls: 5
+      authService:
+        baseConfig: default
+        maxConcurrentCalls: 10
+
+  thread-pool-bulkhead:
+    configs:
+      default:
+        maxThreadPoolSize: 10
+        coreThreadPoolSize: 5
+        queueCapacity: 100
+        keepAliveDuration: 20ms
+    instances:
+      permissionService:
+        baseConfig: default
+        maxThreadPoolSize: 15
+        coreThreadPoolSize: 10
+
+  ratelimiter:
+    configs:
+      default:
+        registerHealthIndicator: true
+        limitForPeriod: 100
+        limitRefreshPeriod: 1s
+        timeoutDuration: 500ms
+        eventConsumerBufferSize: 100
+    instances:
+      permissionService:
+        baseConfig: default
+        limitForPeriod: 50
+      apiEndpoint:
+        baseConfig: default
+        limitForPeriod: 200
+        limitRefreshPeriod: 1s
+      publicEndpoint:
+        baseConfig: default
+        limitForPeriod: 500
+        limitRefreshPeriod: 1s
+
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 3s
+        cancelRunningFuture: true
+    instances:
+      permissionService:
+        baseConfig: default
+        timeoutDuration: 3s
+      accessManagementService:
+        baseConfig: default
+        timeoutDuration: 5s
+      externalApi:
+        baseConfig: default
+        timeoutDuration: 10s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,circuitbreakers,ratelimiters,bulkheads,retries
+  endpoint:
+    health:
+      show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
+    ratelimiters:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        resilience4j.circuitbreaker.calls: true
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 0.0
+
+logging:
+  level:
+    root: INFO
+    com.ftp.authservice: DEBUG
+    com.sharedlib.core: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.cloud.gateway: INFO
+    org.springframework.web: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    hostname: localhost
+    instance-id: ${spring.application.name}:${server.port}
+    lease-renewal-interval-in-seconds: 5
+    lease-expiration-duration-in-seconds: 15
+
+access:
+  service:
+    base-url: http://localhost:6062/api/v1

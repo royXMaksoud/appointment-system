@@ -1,0 +1,47 @@
+# Compiled files
+*.class
+*.jar
+*.war
+*.ear
+**/target/
+**/build/
+
+# IDE
+**/.idea/
+**/*.iml
+**/.vscode/
+**/.settings/
+**/.classpath
+**/.project
+
+# Maven
+**/.mvn/
+**/mvnw
+**/mvnw.cmd
+
+# Node
+**/node_modules/
+**/dist/
+**/.env.local
+
+# Logs
+**/*.log
+**/logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+**/application-local.yml
+**/application-secrets.yml
+.env
+
+# Database
+*.db
+*.sqlite
+
+# Temp
+*.tmp
+*.bak
+*.swp

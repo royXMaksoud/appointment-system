@@ -1,0 +1,603 @@
+{
+  "info": {
+    "name": "Appointment Service - Complete API Collection",
+    "_postman_id": "appointment-service-complete-2025",
+    "description": "Complete API collection for Appointment Service with all 48+ endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:6064",
+      "type": "string"
+    },
+    {
+      "key": "adminUrl",
+      "value": "{{baseUrl}}/api/admin",
+      "type": "string"
+    },
+    {
+      "key": "mobileUrl",
+      "value": "{{baseUrl}}/api/mobile",
+      "type": "string"
+    },
+    {
+      "key": "sampleBranchId",
+      "value": "123e4567-e89b-12d3-a456-426614174000",
+      "type": "string"
+    },
+    {
+      "key": "sampleBeneficiaryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "sampleAppointmentId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. ServiceType Management",
+      "description": "Manage service types (general and detailed services)",
+      "item": [
+        {
+          "name": "Get All ServiceTypes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/service-types?page=0&size=20&sort=displayOrder,asc",
+              "host": ["{{adminUrl}}"],
+              "path": ["service-types"],
+              "query": [
+                {"key": "page", "value": "0"},
+                {"key": "size", "value": "20"},
+                {"key": "sort", "value": "displayOrder,asc"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get ServiceType by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/service-types/{{serviceTypeId}}",
+              "host": ["{{adminUrl}}"],
+              "path": ["service-types", "{{serviceTypeId}}"]
+            }
+          }
+        },
+        {
+          "name": "Create ServiceType",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cardiology\",\n  \"code\": \"CARD_001\",\n  \"description\": \"Heart and cardiovascular services\",\n  \"parentServiceTypeId\": null,\n  \"isActive\": true,\n  \"isLeaf\": true,\n  \"displayOrder\": 1\n}"
+            },
+            "url": {
+              "raw": "{{adminUrl}}/service-types",
+              "host": ["{{adminUrl}}"],
+              "path": ["service-types"]
+            }
+          }
+        },
+        {
+          "name": "Update ServiceType",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cardiology - Updated\",\n  \"code\": \"CARD_001\",\n  \"description\": \"Updated description\",\n  \"parentServiceTypeId\": null,\n  \"isActive\": true,\n  \"isLeaf\": true,\n  \"displayOrder\": 1\n}"
+            },
+            "url": {
+              "raw": "{{adminUrl}}/service-types/{{serviceTypeId}}",
+              "host": ["{{adminUrl}}"],
+              "path": ["service-types", "{{serviceTypeId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete ServiceType",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/service-types/{{serviceTypeId}}",
+              "host": ["{{adminUrl}}"],
+              "path": ["service-types", "{{serviceTypeId}}"]
+            }
+          }
+        },
+        {
+          "name": "Filter ServiceTypes",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"criteria\": [\n    {\n      \"field\": \"isActive\",\n      \"operator\": \"EQUAL\",\n      \"value\": \"true\"\n    },\n    {\n      \"field\": \"isLeaf\",\n      \"operator\": \"EQUAL\",\n      \"value\": \"true\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{adminUrl}}/service-types/filter?page=0&size=20",
+              "host": ["{{adminUrl}}"],
+              "path": ["service-types", "filter"],
+              "query": [
+                {"key": "page", "value": "0"},
+                {"key": "size", "value": "20"}
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get ServiceType Meta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/service-types/meta",
+              "host": ["{{adminUrl}}"],
+              "path": ["service-types", "meta"]
+            }
+          }
+        },
+        {
+          "name": "Get ServiceType Lookup",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/service-types/lookup",
+              "host": ["{{adminUrl}}"],
+              "path": ["service-types", "lookup"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. ActionType Management",
+      "description": "Manage appointment action types (arrived, completed, no-show, etc.)",
+      "item": [
+        {
+          "name": "Create ActionType",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Patient Arrived\",\n  \"code\": \"ARRIVED\",\n  \"description\": \"Patient arrived at center\",\n  \"requiresTransfer\": false,\n  \"completesAppointment\": false,\n  \"color\": \"#4CAF50\",\n  \"displayOrder\": 1,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{adminUrl}}/action-types",
+              "host": ["{{adminUrl}}"],
+              "path": ["action-types"]
+            }
+          }
+        },
+        {
+          "name": "Get All ActionTypes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/action-types?page=0&size=20",
+              "host": ["{{adminUrl}}"],
+              "path": ["action-types"]
+            }
+          }
+        },
+        {
+          "name": "Get ActionType Meta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/action-types/meta",
+              "host": ["{{adminUrl}}"],
+              "path": ["action-types", "meta"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Schedule Management",
+      "description": "Manage weekly schedules for centers",
+      "item": [
+        {
+          "name": "Create Schedule",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"organizationBranchId\": \"{{sampleBranchId}}\",\n  \"dayOfWeek\": 0,\n  \"startTime\": \"08:00:00\",\n  \"endTime\": \"16:00:00\",\n  \"slotDurationMinutes\": 30,\n  \"maxCapacityPerSlot\": 10,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{adminUrl}}/schedules",
+              "host": ["{{adminUrl}}"],
+              "path": ["schedules"]
+            }
+          }
+        },
+        {
+          "name": "Get All Schedules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/schedules?page=0&size=20",
+              "host": ["{{adminUrl}}"],
+              "path": ["schedules"]
+            }
+          }
+        },
+        {
+          "name": "Filter Schedules by Branch",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"criteria\": [\n    {\n      \"field\": \"organizationBranchId\",\n      \"operator\": \"EQUAL\",\n      \"value\": \"{{sampleBranchId}}\"\n    },\n    {\n      \"field\": \"isActive\",\n      \"operator\": \"EQUAL\",\n      \"value\": \"true\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{adminUrl}}/schedules/filter",
+              "host": ["{{adminUrl}}"],
+              "path": ["schedules", "filter"]
+            }
+          }
+        },
+        {
+          "name": "Get Schedule Meta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/schedules/meta",
+              "host": ["{{adminUrl}}"],
+              "path": ["schedules", "meta"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Holiday Management",
+      "description": "Manage holidays and off-days for centers",
+      "item": [
+        {
+          "name": "Create Holiday",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"organizationBranchId\": \"{{sampleBranchId}}\",\n  \"holidayDate\": \"2025-12-25\",\n  \"name\": \"Christmas Day\",\n  \"reason\": \"National Holiday\",\n  \"isRecurringYearly\": true,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{adminUrl}}/holidays",
+              "host": ["{{adminUrl}}"],
+              "path": ["holidays"]
+            }
+          }
+        },
+        {
+          "name": "Get All Holidays",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/holidays?page=0&size=20&sort=holidayDate,asc",
+              "host": ["{{adminUrl}}"],
+              "path": ["holidays"]
+            }
+          }
+        },
+        {
+          "name": "Filter Future Holidays",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"criteria\": [\n    {\n      \"field\": \"holidayDate\",\n      \"operator\": \"GREATER_THAN_OR_EQUAL\",\n      \"value\": \"2025-01-01\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{adminUrl}}/holidays/filter",
+              "host": ["{{adminUrl}}"],
+              "path": ["holidays", "filter"]
+            }
+          }
+        },
+        {
+          "name": "Get Holiday Meta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/holidays/meta",
+              "host": ["{{adminUrl}}"],
+              "path": ["holidays", "meta"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Beneficiary Management",
+      "description": "Manage beneficiaries (patients/users)",
+      "item": [
+        {
+          "name": "Create Beneficiary",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.environment.set('sampleBeneficiaryId', response.beneficiaryId);",
+                  "    pm.test('Beneficiary created', function() {",
+                  "        pm.expect(response.beneficiaryId).to.not.be.null;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nationalId\": \"12345678901\",\n  \"fullName\": \"Ahmad Mohammad Ali\",\n  \"motherName\": \"Fatima Hassan\",\n  \"mobileNumber\": \"+963912345678\",\n  \"email\": \"ahmad.ali@example.com\",\n  \"address\": \"Damascus, Syria\",\n  \"latitude\": 33.5138,\n  \"longitude\": 36.2765,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{adminUrl}}/beneficiaries",
+              "host": ["{{adminUrl}}"],
+              "path": ["beneficiaries"]
+            }
+          }
+        },
+        {
+          "name": "Get All Beneficiaries",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/beneficiaries?page=0&size=20&sort=fullName,asc",
+              "host": ["{{adminUrl}}"],
+              "path": ["beneficiaries"]
+            }
+          }
+        },
+        {
+          "name": "Get Beneficiary by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/beneficiaries/{{sampleBeneficiaryId}}",
+              "host": ["{{adminUrl}}"],
+              "path": ["beneficiaries", "{{sampleBeneficiaryId}}"]
+            }
+          }
+        },
+        {
+          "name": "Search Beneficiaries by Name",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"criteria\": [\n    {\n      \"field\": \"fullName\",\n      \"operator\": \"CONTAINS\",\n      \"value\": \"Ahmad\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{adminUrl}}/beneficiaries/filter",
+              "host": ["{{adminUrl}}"],
+              "path": ["beneficiaries", "filter"]
+            }
+          }
+        },
+        {
+          "name": "Update Beneficiary",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nationalId\": \"12345678901\",\n  \"fullName\": \"Ahmad Mohammad Ali - Updated\",\n  \"motherName\": \"Fatima Hassan\",\n  \"mobileNumber\": \"+963912345678\",\n  \"email\": \"ahmad.updated@example.com\",\n  \"address\": \"Damascus, Mazzeh, Syria\",\n  \"latitude\": 33.5138,\n  \"longitude\": 36.2765,\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{adminUrl}}/beneficiaries/{{sampleBeneficiaryId}}",
+              "host": ["{{adminUrl}}"],
+              "path": ["beneficiaries", "{{sampleBeneficiaryId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Beneficiary Meta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/beneficiaries/meta",
+              "host": ["{{adminUrl}}"],
+              "path": ["beneficiaries", "meta"]
+            }
+          }
+        },
+        {
+          "name": "Get Beneficiary Lookup",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/beneficiaries/lookup",
+              "host": ["{{adminUrl}}"],
+              "path": ["beneficiaries", "lookup"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Appointment Administration",
+      "description": "View and manage appointments (admin operations)",
+      "item": [
+        {
+          "name": "Get All Appointments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/appointments?page=0&size=20&sort=appointmentDate,desc",
+              "host": ["{{adminUrl}}"],
+              "path": ["appointments"]
+            }
+          }
+        },
+        {
+          "name": "Get Appointment by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/appointments/{{sampleAppointmentId}}",
+              "host": ["{{adminUrl}}"],
+              "path": ["appointments", "{{sampleAppointmentId}}"]
+            }
+          }
+        },
+        {
+          "name": "Filter Appointments by Date Range",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"criteria\": [\n    {\n      \"field\": \"appointmentDate\",\n      \"operator\": \"GREATER_THAN_OR_EQUAL\",\n      \"value\": \"2025-10-01\"\n    },\n    {\n      \"field\": \"appointmentDate\",\n      \"operator\": \"LESS_THAN_OR_EQUAL\",\n      \"value\": \"2025-10-31\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{adminUrl}}/appointments/filter",
+              "host": ["{{adminUrl}}"],
+              "path": ["appointments", "filter"]
+            }
+          }
+        },
+        {
+          "name": "Update Appointment Status",
+          "request": {
+            "method": "PUT",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appointmentStatusId\": \"status-uuid-here\",\n  \"notes\": \"Status updated by admin\"\n}"
+            },
+            "url": {
+              "raw": "{{adminUrl}}/appointments/{{sampleAppointmentId}}/status",
+              "host": ["{{adminUrl}}"],
+              "path": ["appointments", "{{sampleAppointmentId}}", "status"]
+            }
+          }
+        },
+        {
+          "name": "Cancel Appointment",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cancellationReason\": \"Patient requested cancellation\"\n}"
+            },
+            "url": {
+              "raw": "{{adminUrl}}/appointments/{{sampleAppointmentId}}/cancel",
+              "host": ["{{adminUrl}}"],
+              "path": ["appointments", "{{sampleAppointmentId}}", "cancel"]
+            }
+          }
+        },
+        {
+          "name": "Transfer Appointment",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetOrganizationBranchId\": \"target-branch-uuid\",\n  \"newAppointmentDate\": \"2025-11-15\",\n  \"newAppointmentTime\": \"10:00:00\",\n  \"transferReason\": \"Center capacity full, transferring to nearby center\"\n}"
+            },
+            "url": {
+              "raw": "{{adminUrl}}/appointments/{{sampleAppointmentId}}/transfer",
+              "host": ["{{adminUrl}}"],
+              "path": ["appointments", "{{sampleAppointmentId}}", "transfer"]
+            }
+          }
+        },
+        {
+          "name": "Get Appointment History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/appointments/{{sampleAppointmentId}}/history",
+              "host": ["{{adminUrl}}"],
+              "path": ["appointments", "{{sampleAppointmentId}}", "history"]
+            }
+          }
+        },
+        {
+          "name": "Get Appointment Meta",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{adminUrl}}/appointments/meta",
+              "host": ["{{adminUrl}}"],
+              "path": ["appointments", "meta"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "System & Health",
+      "description": "System health and diagnostics",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["actuator", "health"]
+            }
+          }
+        },
+        {
+          "name": "API Documentation (OpenAPI)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v3/api-docs",
+              "host": ["{{baseUrl}}"],
+              "path": ["v3", "api-docs"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+

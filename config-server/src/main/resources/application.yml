@@ -1,0 +1,40 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+  profiles:
+    active: native
+  cloud:
+    config:
+      server:
+        git:
+          uri: https://github.com/royXMaksoud/care-config-repo  
+          default-label: main
+          clone-on-start: true
+          skip-ssl-validation: true
+          username: ${GIT_USERNAME:}
+          password: ${GIT_TOKEN:}
+          timeout: 10
+        native:
+          search-locations: classpath:/config
+    discovery:
+      enabled: true
+
+# Eureka enabled - register with service-registry
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    preferIpAddress: true
+    instance-id: ${spring.application.name}:${server.port}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh

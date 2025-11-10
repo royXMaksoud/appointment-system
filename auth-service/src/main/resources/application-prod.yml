@@ -1,0 +1,39 @@
+# Production Profile Configuration
+
+spring:
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+logging:
+  level:
+    root: WARN
+    com.ftp.authservice: INFO
+    com.sharedlib.core: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: WARN
+
+management:
+  tracing:
+    sampling:
+      probability: 0.1  # 10% sampling in production
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics  # Limited endpoints in prod
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      permissionService:
+        slidingWindowSize: 20
+        failureRateThreshold: 30  # More strict in production
+        waitDurationInOpenState: 60s  # Longer wait in production
+
+eureka:
+  instance:
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
