@@ -4,9 +4,8 @@
 FROM maven:3.9.6-eclipse-temurin-17 AS build-shared-lib
 WORKDIR /build
 
-# Copy only the shared-libs part from the main repo context
+# Copy shared-libs from project root
 COPY ./shared-libs ./shared-libs
-
 WORKDIR /build/shared-libs
 RUN mvn clean install -DskipTests -B
 
@@ -17,14 +16,14 @@ RUN mvn clean install -DskipTests -B
 FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
 
-# Copy the cached Maven dependencies from previous stage
+# Copy cached Maven dependencies
 COPY --from=build-shared-lib /root/.m2 /root/.m2
 
-# Copy only the auth-service source
+# Copy pom and source from auth-service directory
 COPY ./auth-service/pom.xml ./pom.xml
-RUN mvn dependency:go-offline -B
-
 COPY ./auth-service/src ./src
+
+RUN mvn dependency:go-offline -B
 RUN mvn clean package -DskipTests -B
 
 
