@@ -26,7 +26,8 @@ COPY pom.xml .
 COPY src ./src
 
 # Build jar
-RUN mvn clean package -DskipTests -B
+RUN mvn clean package -Dmaven.test.skip=true -B
+
 
 
 # ===========================
