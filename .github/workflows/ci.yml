@@ -74,17 +74,24 @@ jobs:
       - name: Clean Docker cache
         run: docker builder prune -f
 
-      # 8️⃣ Build & Push Docker images
+      # 8️⃣ Build & Push Docker images (with shared-libs included)
       - name: Build and push Docker images
         run: |
           COMMIT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
+
           for service in service-registry config-server auth-service access-management-service appointment-service gateway-service data-analysis-service; do
             if [ -f "$service/Dockerfile" ]; then
+              echo "Preparing context for $service..."
+              mkdir -p build/$service
+              cp -r $service/* build/$service/
+              cp -r shared-libs build/$service/ || true
+
               echo "Building and pushing image for $service..."
               docker build \
                 -t $REGISTRY/$IMAGE_OWNER/$service:latest \
                 -t $REGISTRY/$IMAGE_OWNER/$service:$COMMIT_SHA \
-                $service -f $service/Dockerfile
+                build/$service -f build/$service/Dockerfile
+
               docker push $REGISTRY/$IMAGE_OWNER/$service:latest
               docker push $REGISTRY/$IMAGE_OWNER/$service:$COMMIT_SHA
             else
