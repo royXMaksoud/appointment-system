@@ -11,6 +11,7 @@ import com.ftp.authservice.domain.ports.in.RefreshTokenUseCase;
 import com.ftp.authservice.domain.ports.in.RegisterUserUseCase;
 import com.ftp.authservice.exception.PasswordChangeRequiredException;
 import com.ftp.authservice.infrastructure.db.entities.UserJpaEntity;
+import com.ftp.authservice.infrastructure.db.repositories.UserRepository;
 import com.ftp.authservice.infrastructure.security.JwtTokenProvider;
 import com.ftp.authservice.web.dto.AuthSuccessResponse;
 import com.ftp.authservice.web.dto.JwtResponseDTO;
@@ -48,6 +49,7 @@ public class AuthController {
     private final OAuthService oauthService;
     private final OAuthAccountLinkService oauthAccountLinkService;
     private final RestTemplate restTemplate;
+    private final UserRepository userRepository;
 
     @Value("${oauth.google.client-id:}")
     private String googleClientId;
@@ -65,7 +67,8 @@ public class AuthController {
                           LogoutUseCase logoutUseCase,
                           OAuthService oauthService,
                           OAuthAccountLinkService oauthAccountLinkService,
-                          RestTemplateBuilder restTemplateBuilder) {
+                          RestTemplateBuilder restTemplateBuilder,
+                          UserRepository userRepository) {
         this.registerUserUseCase = registerUserUseCase;
         this.loginUseCase = loginUseCase;
         this.refreshTokenUseCase = refreshTokenUseCase;
@@ -74,6 +77,55 @@ public class AuthController {
         this.oauthService = oauthService;
         this.oauthAccountLinkService = oauthAccountLinkService;
         this.restTemplate = restTemplateBuilder.build();
+        this.userRepository = userRepository;
+    }
+
+    /**
+     * Resolve tenant settings by user ID.
+     * This method:
+     * 1. Fetches the user from database by userId
+     * 2. Extracts the tenantId from the user
+     * 3. Fetches tenant settings from Access Management Service
+     * 4. Returns logo, session timeout, and other tenant config
+     */
+    private TenantSettings resolveTenantSettingsByUserId(UUID userId) {
+        TenantSettings defaults = TenantSettings.builder()
+                .sessionTimeoutMinutes(DEFAULT_SESSION_TIMEOUT_MINUTES)
+                .tenantLogo(null)
+                .build();
+
+        if (userId == null) {
+            log.debug("User ID is null, returning default settings");
+            return defaults;
+        }
+
+        // Step 1: Fetch user from database
+        try {
+            log.info("📍 Looking up user {} in database...", userId);
+            UserJpaEntity user = userRepository.findById(userId)
+                    .orElse(null);
+
+            if (user == null) {
+                log.warn("❌ User not found in database for ID: {}", userId);
+                return defaults;
+            }
+
+            UUID tenantId = user.getTenantId();
+            log.info("✅ User found. Tenant ID: {}", tenantId);
+
+            // Step 2: If tenant ID is null, return defaults
+            if (tenantId == null) {
+                log.info("ℹ️  User has no tenant assigned, returning default settings");
+                return defaults;
+            }
+
+            // Step 3: Fetch tenant settings from Access Management Service
+            return resolveTenantSettings(tenantId);
+
+        } catch (Exception ex) {
+            log.error("❌ Failed to resolve tenant settings by user ID {}: {}", userId, ex.getMessage(), ex);
+            return defaults;
+        }
     }
 
     private TenantSettings resolveTenantSettings(UUID tenantId) {
@@ -188,8 +240,8 @@ public class AuthController {
                     request.getLanguage()
             );
 
-            // Resolve tenant settings from Access Management Service
-            TenantSettings tenantSettings = resolveTenantSettings(user.getTenantId());
+            // Resolve tenant settings by user ID (fetches from DB and Access Management Service)
+            TenantSettings tenantSettings = resolveTenantSettingsByUserId(user.getId());
 
             // Return standardized auth response
             AuthSuccessResponse response = AuthSuccessResponse.builder()
@@ -288,9 +340,9 @@ public class AuthController {
                 user.getLanguage()
             );
 
-            // Resolve tenant settings from Access Management Service
-            TenantSettings tenantSettings = resolveTenantSettings(user.getTenantId());
-
+            // Resolve tenant settings by user ID (fetches from DB and Access Management Service)
+            TenantSettings tenantSettings = resolveTenantSettingsByUserId(user.getId());
+            
             // Step 5: Build and return successful response
             OAuthLoginResponse response = OAuthLoginResponse.builder()
                 .accessToken(jwtToken)

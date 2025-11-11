@@ -14,6 +14,13 @@ public interface UserRepository
         extends JpaRepository<UserJpaEntity, UUID>, JpaSpecificationExecutor<UserJpaEntity> {
     Optional<UserJpaEntity> findByEmailIgnoreCase(String email);
     boolean existsByEmailIgnoreCase(String email);
+
+    @Query("""
+        SELECT u FROM UserJpaEntity u
+        WHERE LOWER(u.email) = LOWER(:email)
+          AND u.enabled = true
+          AND u.deleted = false
+    """)
     Optional<UserJpaEntity> findByEmailIgnoreCaseAndEnabledTrueAndDeletedFalse(String email);
 
 
