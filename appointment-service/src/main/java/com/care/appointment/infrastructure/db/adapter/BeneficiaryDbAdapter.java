@@ -61,18 +61,23 @@ public class BeneficiaryDbAdapter implements BeneficiaryCrudPort, BeneficiarySea
     @Override
     public boolean existsByNationalId(String nationalId) {
         if (nationalId == null) return false;
-        return repository.existsByNationalId(nationalId);
+        return repository.existsByNationalIdAndIsDeletedFalse(nationalId);
     }
 
     @Override
     public boolean existsByMobileNumber(String mobileNumber) {
         if (mobileNumber == null) return false;
-        return repository.existsByMobileNumber(mobileNumber);
+        return repository.existsByMobileNumberAndIsDeletedFalse(mobileNumber);
     }
 
     @Override
     public Optional<Beneficiary> findByNationalId(String nationalId) {
         return repository.findByNationalId(nationalId).map(mapper::toDomain);
+    }
+
+    @Override
+    public Optional<Beneficiary> findByMobileNumber(String mobileNumber) {
+        return repository.findByMobileNumber(mobileNumber).map(mapper::toDomain);
     }
 
     @Override

@@ -51,6 +51,7 @@ public class PermissionClient {
                             .queryParamIfPresent("actionCode", Optional.ofNullable(actionCode))
                             .queryParamIfPresent("scopeType", Optional.ofNullable(scopeType))
                             .build())
+                    .header("X-Internal-Key", props.getInternalKey())
                     .accept(MediaType.APPLICATION_JSON)
                     .exchangeToMono(resp -> {
                         long tookMs = Duration.between(start, Instant.now()).toMillis();

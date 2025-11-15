@@ -30,6 +30,7 @@ public class AppointmentReferral {
     private Boolean isUrgent;
     private String rejectionReason; // If status is REJECTED
     private UUID createdById;
+    private UUID updatedById;
     
     private Instant createdAt;
     private Instant updatedAt;

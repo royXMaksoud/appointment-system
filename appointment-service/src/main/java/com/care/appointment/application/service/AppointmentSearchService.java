@@ -255,7 +255,7 @@ public class AppointmentSearchService {
      */
     private String getServiceTypeName(UUID serviceTypeId, String languageCode) {
         return serviceTypeLangRepository
-            .findByServiceTypeIdAndLanguageCode(serviceTypeId, languageCode)
+            .findByServiceTypeIdAndLanguageCodeIgnoreCase(serviceTypeId, languageCode)
             .map(ServiceTypeLangEntity::getName)
             .orElse("Unknown Service");
     }

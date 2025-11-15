@@ -10,6 +10,8 @@ import java.util.UUID;
 
 public interface ViewAppointmentUseCase {
     Optional<Appointment> getAppointmentById(UUID appointmentId);
+    Optional<Appointment> getAppointmentByCode(String appointmentCode);
     Page<Appointment> getAllAppointments(FilterRequest filter, Pageable pageable);
+    Page<Appointment> getAppointmentsByBeneficiary(UUID beneficiaryId, Pageable pageable);
 }
 

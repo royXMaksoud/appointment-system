@@ -62,16 +62,11 @@ public class BeneficiaryDocumentDbAdapter implements BeneficiaryDocumentCrudPort
     }
 
     @Override
-    public List<BeneficiaryDocument> findByBeneficiaryIdAndDocumentType(UUID beneficiaryId, String documentType) {
-        return repository.findByBeneficiaryIdAndDocumentType(beneficiaryId, documentType)
+    public List<BeneficiaryDocument> findByBeneficiaryIdAndDocumentType(UUID beneficiaryId, UUID documentTypeCodeValueId) {
+        return repository.findByBeneficiaryIdAndDocumentTypeCodeValueId(beneficiaryId, documentTypeCodeValueId)
                 .stream()
                 .map(mapper::toDomain)
                 .collect(Collectors.toList());
-    }
-
-    @Override
-    public Optional<BeneficiaryDocument> findByStorageKey(String storageKey) {
-        return repository.findByStorageKey(storageKey).map(mapper::toDomain);
     }
 
     @Override

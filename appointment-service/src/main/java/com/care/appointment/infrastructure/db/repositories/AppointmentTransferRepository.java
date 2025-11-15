@@ -34,5 +34,7 @@ public interface AppointmentTransferRepository extends
         @Param("branchId") UUID branchId, @Param("status") String status);
     
     long countByToOrganizationBranchIdAndStatus(UUID toBranchId, String status);
+
+    void deleteByAppointmentId(UUID appointmentId);
 }
 

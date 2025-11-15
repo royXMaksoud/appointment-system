@@ -19,18 +19,21 @@ public class BeneficiaryDocument {
     private UUID documentId;
     private UUID beneficiaryId;
     private String documentName;
-    private String documentType; // NATIONAL_ID, MEDICAL_REPORT, PRESCRIPTION, OTHER
+    private String legacyDocumentType;
+    private UUID documentTypeCodeValueId;
+    private String documentTypeCode;
     private String documentDescription;
-    private String fileUrl; // S3 or file storage URL
     private String fileName; // Original filename
+    private String fileExtension;
+    private String filePath; // Relative path on storage
+    private String fileUrl; // Legacy absolute url field (same as filePath)
     private Long fileSizeBytes;
     private String mimeType; // application/pdf, image/jpeg, etc.
-    private String storageProvider; // S3, LOCAL, etc.
-    private String storageKey; // Storage bucket/key
-    
+
     private Boolean isActive;
     private Boolean isDeleted;
     private UUID createdById;
+    private UUID updatedById;
     private Instant createdAt;
     private Instant updatedAt;
     private Long rowVersion;

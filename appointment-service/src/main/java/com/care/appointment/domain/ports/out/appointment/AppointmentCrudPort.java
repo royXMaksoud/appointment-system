@@ -9,6 +9,7 @@ public interface AppointmentCrudPort {
     Appointment save(Appointment entity);
     Appointment update(Appointment entity);
     Optional<Appointment> findById(UUID id);
+    Optional<Appointment> findByAppointmentCode(String appointmentCode);
     void deleteById(UUID id);
 }
 

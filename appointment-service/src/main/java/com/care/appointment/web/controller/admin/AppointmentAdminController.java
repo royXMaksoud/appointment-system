@@ -6,15 +6,18 @@ import com.care.appointment.application.appointment.command.UpdateAppointmentSta
 import com.care.appointment.domain.model.Appointment;
 import com.care.appointment.domain.ports.in.appointment.ManageAppointmentUseCase;
 import com.care.appointment.domain.ports.in.appointment.ViewAppointmentUseCase;
-import com.care.appointment.infrastructure.db.config.AppointmentFilterConfig;
-import com.care.appointment.infrastructure.db.entities.AppointmentEntity;
 import com.care.appointment.infrastructure.db.entities.AppointmentStatusHistoryEntity;
 import com.care.appointment.infrastructure.db.repositories.AppointmentStatusHistoryRepository;
 import com.care.appointment.web.dto.admin.appointment.AppointmentDetailsResponse;
 import com.care.appointment.web.dto.admin.appointment.CancelAppointmentRequest;
+import com.care.appointment.web.dto.admin.appointment.CreateAppointmentRequest;
 import com.care.appointment.web.dto.admin.appointment.TransferAppointmentRequest;
+import com.care.appointment.web.dto.admin.appointment.UpdateAppointmentRequest;
 import com.care.appointment.web.dto.admin.appointment.UpdateAppointmentStatusRequest;
+import com.care.appointment.web.dto.admin.appointment.CompleteAppointmentRequest;
 import com.care.appointment.web.mapper.AppointmentAdminWebMapper;
+import com.care.appointment.application.service.AppointmentManagementService;
+import com.care.appointment.application.common.service.UserDirectoryService;
 import com.sharedlib.core.filter.FilterRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -26,14 +29,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * REST Controller for Appointment Administration
@@ -62,6 +67,8 @@ public class AppointmentAdminController {
     private final ManageAppointmentUseCase manageAppointmentUseCase;
     private final AppointmentAdminWebMapper mapper;
     private final AppointmentStatusHistoryRepository statusHistoryRepository;
+    private final AppointmentManagementService appointmentManagementService;
+    private final UserDirectoryService userDirectoryService;
 
     /**
      * Get appointment by ID with full details
@@ -75,6 +82,24 @@ public class AppointmentAdminController {
     public ResponseEntity<AppointmentDetailsResponse> getAppointmentById(@PathVariable UUID appointmentId) {
         Optional<Appointment> appointment = viewAppointmentUseCase.getAppointmentById(appointmentId);
         return appointment.map(mapper::toDetailsResponse)
+                .map(this::enrichAppointmentDetails)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Get appointment by unique appointment code
+     * Returns 404 if not found
+     */
+    @GetMapping("/code/{appointmentCode}")
+    @Operation(summary = "Get appointment by code", description = "Retrieves appointment details using the generated appointment code")
+    @ApiResponse(responseCode = "200", description = "Appointment found",
+            content = @Content(schema = @Schema(implementation = AppointmentDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Appointment not found")
+    public ResponseEntity<AppointmentDetailsResponse> getAppointmentByCode(@PathVariable String appointmentCode) {
+        Optional<Appointment> appointment = viewAppointmentUseCase.getAppointmentByCode(appointmentCode);
+        return appointment.map(mapper::toDetailsResponse)
+                .map(this::enrichAppointmentDetails)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -89,7 +114,9 @@ public class AppointmentAdminController {
     public ResponseEntity<Page<AppointmentDetailsResponse>> getAllAppointments(@PageableDefault(size = 20) Pageable pageable) {
         FilterRequest safe = new FilterRequest();
         Page<Appointment> appointments = viewAppointmentUseCase.getAllAppointments(safe, pageable);
-        Page<AppointmentDetailsResponse> responsePage = appointments.map(mapper::toDetailsResponse);
+        Page<AppointmentDetailsResponse> responsePage = appointments
+                .map(mapper::toDetailsResponse)
+                .map(this::enrichAppointmentDetails);
         return ResponseEntity.ok(responsePage);
     }
 
@@ -111,8 +138,54 @@ public class AppointmentAdminController {
         FilterRequest safe = (request != null) ? request : new FilterRequest();
         Page<AppointmentDetailsResponse> page = viewAppointmentUseCase
                 .getAllAppointments(safe, pageable)
-                .map(mapper::toDetailsResponse);
+                .map(mapper::toDetailsResponse)
+                .map(this::enrichAppointmentDetails);
         return ResponseEntity.ok(page);
+    }
+
+    /**
+     * Create new appointment
+     */
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Create appointment", description = "Creates a new appointment")
+    @ApiResponse(responseCode = "201", description = "Appointment created successfully",
+            content = @Content(schema = @Schema(implementation = AppointmentDetailsResponse.class)))
+    public ResponseEntity<AppointmentDetailsResponse> createAppointment(
+            @Valid @RequestBody CreateAppointmentRequest request) {
+
+        Appointment created = manageAppointmentUseCase.createAppointment(mapper.toCreateCommand(request));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(enrichAppointmentDetails(mapper.toDetailsResponse(created)));
+    }
+
+    /**
+     * Update appointment
+     */
+    @PutMapping(
+            value = "/{appointmentId:[0-9a-fA-F\\-]{36}}",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    @Operation(summary = "Update appointment", description = "Updates an existing appointment")
+    @ApiResponse(responseCode = "200", description = "Appointment updated successfully",
+            content = @Content(schema = @Schema(implementation = AppointmentDetailsResponse.class)))
+    public ResponseEntity<AppointmentDetailsResponse> updateAppointment(
+            @PathVariable UUID appointmentId,
+            @Valid @RequestBody UpdateAppointmentRequest request) {
+
+        Appointment updated = manageAppointmentUseCase.updateAppointment(mapper.toUpdateCommand(appointmentId, request));
+        return ResponseEntity.ok(enrichAppointmentDetails(mapper.toDetailsResponse(updated)));
+    }
+
+    /**
+     * Delete appointment
+     */
+    @DeleteMapping("/{appointmentId:[0-9a-fA-F\\-]{36}}")
+    @Operation(summary = "Delete appointment", description = "Deletes an appointment permanently")
+    @ApiResponse(responseCode = "204", description = "Appointment deleted successfully")
+    public ResponseEntity<Void> deleteAppointment(@PathVariable UUID appointmentId) {
+        manageAppointmentUseCase.deleteAppointment(appointmentId);
+        return ResponseEntity.noContent().build();
     }
 
 
@@ -130,7 +203,7 @@ public class AppointmentAdminController {
 
         UpdateAppointmentStatusCommand command = mapper.toUpdateStatusCommand(appointmentId, request);
         Appointment updated = manageAppointmentUseCase.updateStatus(command);
-        return ResponseEntity.ok(mapper.toDetailsResponse(updated));
+        return ResponseEntity.ok(enrichAppointmentDetails(mapper.toDetailsResponse(updated)));
     }
 
     /**
@@ -147,7 +220,28 @@ public class AppointmentAdminController {
 
         CancelAppointmentCommand command = mapper.toCancelCommand(appointmentId, request);
         Appointment cancelled = manageAppointmentUseCase.cancelAppointment(command);
-        return ResponseEntity.ok(mapper.toDetailsResponse(cancelled));
+        return ResponseEntity.ok(enrichAppointmentDetails(mapper.toDetailsResponse(cancelled)));
+    }
+
+    /**
+     * Complete appointment
+     * Marks appointment as completed and records history
+     */
+    @PostMapping("/{appointmentId:[0-9a-fA-F\\-]{36}}/complete")
+    @Operation(summary = "Complete appointment", description = "Marks appointment as completed and records status history")
+    @ApiResponse(responseCode = "200", description = "Appointment completed successfully",
+            content = @Content(schema = @Schema(implementation = AppointmentDetailsResponse.class)))
+    public ResponseEntity<Void> completeAppointment(
+            @PathVariable UUID appointmentId,
+            @Valid @RequestBody CompleteAppointmentRequest request) {
+
+        appointmentManagementService.completeAppointment(
+                appointmentId,
+                request.getActionTypeId(),
+                request.getActionNotes(),
+                request.getCompletedByUserId()
+        );
+        return ResponseEntity.ok().build();
     }
 
     /**
@@ -164,7 +258,7 @@ public class AppointmentAdminController {
 
         TransferAppointmentCommand command = mapper.toTransferCommand(appointmentId, request);
         Appointment transferred = manageAppointmentUseCase.transferAppointment(command);
-        return ResponseEntity.ok(mapper.toDetailsResponse(transferred));
+        return ResponseEntity.ok(enrichAppointmentDetails(mapper.toDetailsResponse(transferred)));
     }
 
     /**
@@ -178,6 +272,25 @@ public class AppointmentAdminController {
         List<AppointmentStatusHistoryEntity> history = statusHistoryRepository
                 .findByAppointmentIdOrderByChangedAtDesc(appointmentId);
         return ResponseEntity.ok(history);
+    }
+
+    private AppointmentDetailsResponse enrichAppointmentDetails(AppointmentDetailsResponse response) {
+        if (response == null) {
+            return null;
+        }
+        var ids = Stream.of(response.getCreatedById(), response.getUpdatedById())
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+        if (!ids.isEmpty()) {
+            var names = userDirectoryService.getDisplayNames(ids);
+            if (response.getCreatedById() != null) {
+                response.setCreatedByName(names.get(response.getCreatedById()));
+            }
+            if (response.getUpdatedById() != null) {
+                response.setUpdatedByName(names.get(response.getUpdatedById()));
+            }
+        }
+        return response;
     }
 }
 

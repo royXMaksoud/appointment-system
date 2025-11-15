@@ -1,8 +1,8 @@
 package com.care.appointment.application.beneficiary.service;
 
+import com.care.appointment.application.common.exception.UnauthorizedException;
 import com.care.appointment.domain.model.Beneficiary;
 import com.care.appointment.domain.ports.out.beneficiary.BeneficiarySearchPort;
-import com.sharedlib.core.exception.UnauthorizedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

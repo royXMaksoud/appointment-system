@@ -34,5 +34,11 @@ public class Appointment {
     private UUID updatedById;
     private Instant updatedAt;
     private Long rowVersion;
+
+    // QR Code & Tracking
+    private String appointmentCode;      // e.g., HQ-2025-0001
+    private String qrCodeUrl;            // URL to QR code image
+    private String verificationCode;     // e.g., "4-2-7"
+    private Instant verificationCodeExpiresAt;
 }
 

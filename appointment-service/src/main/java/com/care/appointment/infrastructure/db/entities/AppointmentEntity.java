@@ -28,7 +28,9 @@ import java.util.UUID;
         @Index(name = "ix_appointments_date_time", columnList = "appointment_date, appointment_time"),
         @Index(name = "ix_appointments_branch_date", columnList = "organization_branch_id, appointment_date"),
         @Index(name = "ix_appointments_priority", columnList = "priority"),
-        @Index(name = "ix_appointments_created_by", columnList = "created_by_user_id")
+        @Index(name = "ix_appointments_created_by", columnList = "created_by_user_id"),
+        @Index(name = "ix_appointments_code", columnList = "appointment_code"),
+        @Index(name = "ix_appointments_verification_code", columnList = "verification_code")
     }
 )
 @Getter @Setter
@@ -108,6 +110,22 @@ public class AppointmentEntity {
     @Version
     @Column(name = "row_version")
     private Long rowVersion;
+
+    /** Unique appointment code: BRANCH_CODE-YEAR-SEQUENCE (e.g., HQ-2025-0001) */
+    @Column(name = "appointment_code", unique = true, nullable = false)
+    private String appointmentCode;
+
+    /** URL to QR code image for this appointment */
+    @Column(name = "qr_code_url", columnDefinition = "TEXT")
+    private String qrCodeUrl;
+
+    /** 3-digit verification code for simple verification (e.g., "4-2-7") */
+    @Column(name = "verification_code", length = 10)
+    private String verificationCode;
+
+    /** When the verification code expires */
+    @Column(name = "verification_code_expires_at")
+    private Instant verificationCodeExpiresAt;
 
     @PrePersist
     void prePersist() {

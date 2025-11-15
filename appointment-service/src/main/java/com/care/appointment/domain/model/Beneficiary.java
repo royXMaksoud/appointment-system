@@ -41,6 +41,14 @@ public class Beneficiary {
     private UUID registrationCompletedByUserId;
     private UUID preferredLanguageCodeValueId;   // → code_table_values (AR/EN/TR/KU)
 
+    // Mobile App Tracking & Notifications
+    private Boolean hasInstalledMobileApp;       // Whether beneficiary has mobile app installed
+    private Instant lastMobileAppSync;           // Last time beneficiary synced with mobile app
+    private String deviceId;                     // Unique device identifier for push notifications
+    private String preferredNotificationMethod;  // SMS, PUSH, or EMAIL
+    private String verificationStatus;           // VERIFIED or UNVERIFIED
+    private Integer totalActiveAppointments;     // Count of active appointments
+
     // AUDIT FIELDS
     private Boolean isActive;
     private Boolean isDeleted;

@@ -7,6 +7,7 @@ public class AppointmentFilterConfig {
     public static final Set<String> ALLOWED_FIELDS = Set.of(
             "appointmentId",
             "appointmentRequestId",
+            "appointmentCode",
             "beneficiaryId",
             "organizationBranchId",
             "serviceTypeId",
@@ -26,6 +27,7 @@ public class AppointmentFilterConfig {
     public static final Set<String> SORTABLE = Set.of(
             "appointmentDate",
             "appointmentTime",
+            "appointmentCode",
             "priority",
             "createdAt",
             "updatedAt",

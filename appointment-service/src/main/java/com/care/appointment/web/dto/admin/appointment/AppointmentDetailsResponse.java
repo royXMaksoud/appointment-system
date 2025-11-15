@@ -26,6 +26,7 @@ public class AppointmentDetailsResponse {
     private LocalDate appointmentDate;
     private LocalTime appointmentTime;
     private Integer slotDurationMinutes;
+    private String appointmentCode;
     
     // Status
     private UUID appointmentStatusId;
@@ -48,8 +49,10 @@ public class AppointmentDetailsResponse {
     
     // Audit
     private UUID createdById;
+    private String createdByName;
     private Instant createdAt;
     private UUID updatedById;
+    private String updatedByName;
     private Instant updatedAt;
     private Long rowVersion;
 }

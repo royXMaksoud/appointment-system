@@ -11,19 +11,17 @@ import org.mapstruct.*;
 public interface BeneficiaryDocumentDomainMapper {
 
     @Mapping(target = "documentId", ignore = true)
+    @Mapping(target = "legacyDocumentType", source = "documentTypeCode")
     @Mapping(target = "isActive", constant = "true")
     @Mapping(target = "isDeleted", constant = "false")
+    @Mapping(target = "updatedById", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "rowVersion", ignore = true)
     BeneficiaryDocument toDomain(CreateBeneficiaryDocumentCommand command);
 
     @Mapping(target = "beneficiaryId", ignore = true)
-    @Mapping(target = "fileUrl", ignore = true)
-    @Mapping(target = "fileSizeBytes", ignore = true)
-    @Mapping(target = "mimeType", ignore = true)
-    @Mapping(target = "storageProvider", ignore = true)
-    @Mapping(target = "storageKey", ignore = true)
+    @Mapping(target = "legacyDocumentType", source = "documentTypeCode")
     @Mapping(target = "createdById", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)

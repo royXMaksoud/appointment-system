@@ -25,6 +25,10 @@ public interface BeneficiaryRepository extends
     
     boolean existsByMobileNumber(String mobileNumber);
     
+    boolean existsByNationalIdAndIsDeletedFalse(String nationalId);
+    
+    boolean existsByMobileNumberAndIsDeletedFalse(String mobileNumber);
+    
     /**
      * Finds beneficiary by mobile number and date of birth.
      * Used for mobile app authentication.

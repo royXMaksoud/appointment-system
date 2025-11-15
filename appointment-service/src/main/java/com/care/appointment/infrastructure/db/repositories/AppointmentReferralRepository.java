@@ -27,5 +27,7 @@ public interface AppointmentReferralRepository extends
     List<AppointmentReferralEntity> findByBeneficiaryIdAndStatus(UUID beneficiaryId, String status);
     
     Optional<AppointmentReferralEntity> findByReferredToAppointmentIdAndStatus(UUID appointmentId, String status);
+
+    void deleteByAppointmentId(UUID appointmentId);
 }
 

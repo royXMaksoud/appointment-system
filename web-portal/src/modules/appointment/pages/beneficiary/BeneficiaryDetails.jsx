@@ -1,18 +1,27 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '@/lib/axios'
 import { toast } from 'sonner'
-import { 
-  User, 
-  Users as UsersIcon, 
-  FileText, 
-  Calendar, 
-  Mail, 
-  Phone, 
+import {
+  User,
+  Users as UsersIcon,
+  FileText,
+  Mail,
+  Phone,
   MapPin,
   ArrowLeft,
   Loader2,
+  ExternalLink,
+  History,
+  ImagePlus,
+  Trash2,
 } from 'lucide-react'
+import AppointmentBreadcrumb from '@/modules/appointment/components/AppointmentBreadcrumb'
+import BeneficiaryPersonalInfoTab from './tabs/BeneficiaryPersonalInfoTab'
+import BeneficiaryFamilyTab from './tabs/BeneficiaryFamilyTab'
+import BeneficiaryDocumentsTab from './tabs/BeneficiaryDocumentsTab'
+import BeneficiaryAppointmentsTab from './tabs/BeneficiaryAppointmentsTab'
+import MapPickerModal from '@/components/MapPickerModal'
 
 export default function BeneficiaryDetails() {
   const { beneficiaryId } = useParams()
@@ -20,10 +29,120 @@ export default function BeneficiaryDetails() {
   const [loading, setLoading] = useState(true)
   const [beneficiary, setBeneficiary] = useState(null)
   const [activeTab, setActiveTab] = useState('info')
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const fileInputRef = useRef(null)
+  const [genderOptions, setGenderOptions] = useState([])
+  const [languageOptions, setLanguageOptions] = useState([])
+  const GENDER_TABLE_ID = '8969b32a-2ff5-4004-9dca-ad6a2425d762'
+  const LANGUAGE_TABLE_ID = 'fa8c4fd4-8c3a-477a-afbb-dd95472fc913'
+  const toInputCoordinate = (value) =>
+    value === null || value === undefined || value === '' ? '' : String(value)
+  const parseCoordinateOrFallback = (value, fallback) => {
+    if (value === null || value === undefined || value === '') {
+      return fallback ?? null
+    }
+    const parsed = typeof value === 'number' ? value : parseFloat(value)
+    return Number.isFinite(parsed) ? parsed : fallback ?? null
+  }
+
+  const [isEditingPersonalInfo, setIsEditingPersonalInfo] = useState(false)
+  const [personalInfoForm, setPersonalInfoForm] = useState({
+    fullName: '',
+    motherName: '',
+    nationalId: '',
+    genderCodeValueId: '',
+    dateOfBirth: '',
+    mobileNumber: '',
+    email: '',
+    address: '',
+    preferredLanguageCodeValueId: '',
+    registrationStatusCodeValueId: '',
+    isActive: true,
+    latitude: '',
+    longitude: '',
+  })
+  const [personalInfoErrors, setPersonalInfoErrors] = useState({})
+  const [savingPersonalInfo, setSavingPersonalInfo] = useState(false)
+  const [showMapPicker, setShowMapPicker] = useState(false)
+
+  const resolvedProfilePhotoUrl = useMemo(() => {
+    const url = beneficiary?.profilePhotoUrl
+    if (!url) return null
+    if (/^https?:\/\//i.test(url) || url.startsWith('data:')) {
+      return url
+    }
+    const baseUrl = api.defaults?.baseURL ?? ''
+    const normalized = url.startsWith('/')
+      ? url
+      : `/appointment-service/api/admin/beneficiaries/${beneficiaryId}/profile-photo`
+    return `${baseUrl}${normalized}`
+  }, [beneficiary?.profilePhotoUrl, beneficiaryId])
   
   useEffect(() => {
     loadBeneficiary()
   }, [beneficiaryId])
+
+  useEffect(() => {
+    const loadGenderOptions = async () => {
+      try {
+        const { data } = await api.get(
+          '/access/api/cascade-dropdowns/access.code-table-values-by-table',
+          { params: { codeTableId: GENDER_TABLE_ID } }
+        )
+        const mapped =
+          (data || []).map((item) => ({
+            value: item.id ?? item.value ?? item.codeTableValueId ?? item.code,
+            label: item.label || item.name || item.description || item.code || '—',
+          })).filter((opt) => opt.value) || []
+        setGenderOptions(mapped)
+      } catch (error) {
+        console.error('Failed to load gender code table values', error)
+      }
+    }
+    loadGenderOptions()
+  }, [])
+
+  useEffect(() => {
+    const mapDropdownItems = (items = []) =>
+      items
+        .map((item) => ({
+          value: item.id ?? item.value ?? item.codeTableValueId ?? item.code,
+          label: item.label || item.name || item.description || item.code || '—',
+        }))
+        .filter((opt) => opt.value)
+
+    const loadLanguageOptions = async () => {
+      try {
+        const response = await api.get('/access/api/cascade-dropdowns/access.code-table-values-by-table', {
+          params: { codeTableId: LANGUAGE_TABLE_ID },
+        })
+        setLanguageOptions(mapDropdownItems(response?.data || []))
+      } catch (error) {
+        console.error('Failed to load preferred language options', error)
+      }
+    }
+
+    loadLanguageOptions()
+  }, [])
+
+  useEffect(() => {
+    if (!beneficiary) return
+    setPersonalInfoForm({
+      fullName: beneficiary.fullName || '',
+      motherName: beneficiary.motherName || '',
+      nationalId: beneficiary.nationalId || '',
+      genderCodeValueId: beneficiary.genderCodeValueId || '',
+      dateOfBirth: beneficiary.dateOfBirth ? beneficiary.dateOfBirth.split('T')[0] : '',
+      mobileNumber: beneficiary.mobileNumber || '',
+      email: beneficiary.email || '',
+      address: beneficiary.address || '',
+      preferredLanguageCodeValueId: beneficiary.preferredLanguageCodeValueId || '',
+      registrationStatusCodeValueId: beneficiary.registrationStatusCodeValueId || '',
+      isActive: beneficiary.isActive !== false,
+      latitude: toInputCoordinate(beneficiary.latitude),
+      longitude: toInputCoordinate(beneficiary.longitude),
+    })
+  }, [beneficiary])
   
   const loadBeneficiary = async () => {
     try {
@@ -37,7 +156,237 @@ export default function BeneficiaryDetails() {
       setLoading(false)
     }
   }
+
+  const triggerProfilePhotoInput = useCallback(() => {
+    if (!photoUploading) {
+      fileInputRef.current?.click()
+    }
+  }, [photoUploading])
+
+  const handleProfilePhotoUpload = useCallback(
+    async (event) => {
+      const file = event.target.files?.[0]
+      if (!file) return
+
+      const formData = new FormData()
+      formData.append('file', file)
+
+      try {
+        setPhotoUploading(true)
+        const { data } = await api.post(
+          `/appointment-service/api/admin/beneficiaries/${beneficiaryId}/profile-photo`,
+          formData,
+          {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          }
+        )
+        if (data) {
+          setBeneficiary((prev) => (prev ? { ...prev, ...data } : data))
+          toast.success('Profile photo updated')
+        } else {
+          await loadBeneficiary()
+        }
+      } catch (error) {
+        console.error('Failed to upload profile photo:', error)
+        toast.error(error.response?.data?.message || 'Failed to upload profile photo')
+      } finally {
+        setPhotoUploading(false)
+        event.target.value = ''
+      }
+    },
+    [beneficiaryId, photoUploading]
+  )
+
+  const handleRemoveProfilePhoto = useCallback(async () => {
+    if (!beneficiary?.profilePhotoUrl || photoUploading) return
+    try {
+      setPhotoUploading(true)
+      const response = await api.delete(
+        `/appointment-service/api/admin/beneficiaries/${beneficiaryId}/profile-photo`
+      )
+      const data = response?.data
+      if (data) {
+        setBeneficiary((prev) => (prev ? { ...prev, ...data } : data))
+      } else {
+        setBeneficiary((prev) => (prev ? { ...prev, profilePhotoUrl: null } : prev))
+      }
+      toast.success('Profile photo removed')
+    } catch (error) {
+      console.error('Failed to remove profile photo:', error)
+      toast.error(error.response?.data?.message || 'Failed to remove profile photo')
+    } finally {
+      setPhotoUploading(false)
+    }
+  }, [beneficiary?.profilePhotoUrl, beneficiaryId, photoUploading])
+
+  const handlePersonalInfoChange = (field, value) => {
+    setPersonalInfoForm(prev => ({ ...prev, [field]: value }))
+    setPersonalInfoErrors(prev => ({ ...prev, [field]: undefined }))
+  }
+
+  const validatePersonalInfo = () => {
+    const errors = {}
+    if (!personalInfoForm.fullName?.trim()) {
+      errors.fullName = 'Full name is required'
+    }
+    if (!personalInfoForm.mobileNumber?.trim()) {
+      errors.mobileNumber = 'Mobile number is required'
+    }
+    if (!personalInfoForm.address?.trim()) {
+      errors.address = 'Address is required'
+    }
+    if (
+      personalInfoForm.latitude === '' ||
+      personalInfoForm.latitude === null ||
+      Number.isNaN(Number(personalInfoForm.latitude))
+    ) {
+      errors.latitude = 'Latitude is required'
+    }
+    if (
+      personalInfoForm.longitude === '' ||
+      personalInfoForm.longitude === null ||
+      Number.isNaN(Number(personalInfoForm.longitude))
+    ) {
+      errors.longitude = 'Longitude is required'
+    }
+    if (!personalInfoForm.preferredLanguageCodeValueId) {
+      errors.preferredLanguageCodeValueId = 'Preferred language is required'
+    }
+    if (!personalInfoForm.dateOfBirth) {
+      errors.dateOfBirth = 'Date of birth is required'
+    }
+    if (personalInfoForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personalInfoForm.email)) {
+      errors.email = 'Invalid email format'
+    }
+    setPersonalInfoErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const buildUpdatePayload = () => {
+    const fallbackString = (value, fallback) => {
+      if (value === '' || value === undefined || value === null) {
+        return fallback ?? null
+      }
+      return value
+    }
+
+    const fallbackTrimmed = (value, fallback) => {
+      const normalized = value?.trim()
+      if (!normalized) {
+        return fallback ?? null
+      }
+      return normalized
+    }
+
+    const fallbackDate = (value, fallback) => {
+      if (!value) {
+        return fallback ?? null
+      }
+      return value
+    }
+
+    return {
+      nationalId: fallbackTrimmed(personalInfoForm.nationalId, beneficiary?.nationalId),
+      fullName: fallbackTrimmed(personalInfoForm.fullName, beneficiary?.fullName),
+      motherName: fallbackTrimmed(personalInfoForm.motherName, beneficiary?.motherName),
+      mobileNumber: fallbackTrimmed(personalInfoForm.mobileNumber, beneficiary?.mobileNumber),
+      email: fallbackTrimmed(personalInfoForm.email, beneficiary?.email),
+      address: fallbackTrimmed(personalInfoForm.address, beneficiary?.address),
+      latitude: parseCoordinateOrFallback(personalInfoForm.latitude, beneficiary?.latitude ?? null),
+      longitude: parseCoordinateOrFallback(personalInfoForm.longitude, beneficiary?.longitude ?? null),
+      dateOfBirth: fallbackDate(personalInfoForm.dateOfBirth, beneficiary?.dateOfBirth?.split('T')[0]),
+      genderCodeValueId: fallbackString(personalInfoForm.genderCodeValueId, beneficiary?.genderCodeValueId),
+      profilePhotoUrl: beneficiary?.profilePhotoUrl ?? null,
+      registrationStatusCodeValueId: fallbackString(
+        personalInfoForm.registrationStatusCodeValueId,
+        beneficiary?.registrationStatusCodeValueId
+      ),
+      preferredLanguageCodeValueId: fallbackString(
+        personalInfoForm.preferredLanguageCodeValueId,
+        beneficiary?.preferredLanguageCodeValueId
+      ),
+      isActive: Boolean(personalInfoForm.isActive),
+    }
+  }
+
+  const handleSavePersonalInfo = async () => {
+    if (!validatePersonalInfo()) return
+    try {
+      setSavingPersonalInfo(true)
+      const payload = buildUpdatePayload()
+      const { data } = await api.put(
+        `/appointment-service/api/admin/beneficiaries/${beneficiaryId}`,
+        payload
+      )
+      await loadBeneficiary()
+      if (!data) {
+        // ensure local state reflects persisted change even if API returned no body
+        setBeneficiary(prev => (prev ? { ...prev } : prev))
+      }
+      toast.success('Personal information updated successfully')
+      setIsEditingPersonalInfo(false)
+    } catch (error) {
+      console.error('Failed to update beneficiary info:', error)
+      toast.error(
+        error.response?.data?.message || 'Failed to update personal information'
+      )
+    } finally {
+      setSavingPersonalInfo(false)
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditingPersonalInfo(false)
+    if (beneficiary) {
+      setPersonalInfoForm({
+        fullName: beneficiary.fullName || '',
+        motherName: beneficiary.motherName || '',
+        nationalId: beneficiary.nationalId || '',
+        genderCodeValueId: beneficiary.genderCodeValueId || '',
+        dateOfBirth: beneficiary.dateOfBirth ? beneficiary.dateOfBirth.split('T')[0] : '',
+        mobileNumber: beneficiary.mobileNumber || '',
+        email: beneficiary.email || '',
+        address: beneficiary.address || '',
+        preferredLanguageCodeValueId: beneficiary.preferredLanguageCodeValueId || '',
+        registrationStatusCodeValueId: beneficiary.registrationStatusCodeValueId || '',
+        isActive: beneficiary.isActive !== false,
+        latitude: toInputCoordinate(beneficiary.latitude),
+        longitude: toInputCoordinate(beneficiary.longitude),
+      })
+    }
+    setPersonalInfoErrors({})
+  }
+  const handleMapPick = ({ latitude, longitude }) => {
+    if (latitude !== undefined) {
+      handlePersonalInfoChange('latitude', latitude.toFixed(6))
+    }
+    if (longitude !== undefined) {
+      handlePersonalInfoChange('longitude', longitude.toFixed(6))
+    }
+  }
   
+  const genderLabelMap = useMemo(
+    () =>
+      genderOptions.reduce((acc, option) => {
+        acc[option.value] = option.label
+        return acc
+      }, {}),
+    [genderOptions]
+  )
+
+  const languageLabelMap = useMemo(
+    () =>
+      languageOptions.reduce((acc, option) => {
+        acc[option.value] = option.label
+        return acc
+      }, {}),
+    [languageOptions]
+  )
+
+  const breadcrumbLabel = useMemo(() => {
+    return beneficiary?.fullName || beneficiary?.nationalId || 'Beneficiary Details'
+  }, [beneficiary])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -62,712 +411,562 @@ export default function BeneficiaryDetails() {
     )
   }
   
+  const Avatar = ({ size = 'md', photoUrl }) => {
+    const sizeClasses = size === 'lg' ? 'w-28 h-28' : 'w-20 h-20'
+    const iconSize = size === 'lg' ? 'w-14 h-14' : 'w-10 h-10'
+    const [imageError, setImageError] = useState(false)
+    const effectiveUrl = photoUrl ?? resolvedProfilePhotoUrl ?? beneficiary?.profilePhotoUrl ?? null
+    
+    if (effectiveUrl && !imageError) {
+      return (
+        <img
+          src={effectiveUrl}
+          alt={beneficiary.fullName}
+          className={`${sizeClasses} rounded-full object-cover border-4 border-white shadow-lg`}
+          onError={() => setImageError(true)}
+        />
+      )
+    }
+    
+    return (
+      <div
+        className={`${sizeClasses} rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg`}
+      >
+        <User className={`${iconSize} text-white`} />
+      </div>
+    )
+  }
+  
   const tabs = [
     { id: 'info', label: 'Personal Info', icon: User },
     { id: 'family', label: 'Family Members', icon: UsersIcon },
     { id: 'documents', label: 'Documents', icon: FileText },
+    { id: 'appointments', label: 'Appointments', icon: History },
   ]
   
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-6">
-          <button
-            onClick={() => navigate('/appointment/beneficiaries')}
-            className="mb-4 flex items-center gap-2 text-indigo-600 hover:text-indigo-800"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to list
-          </button>
-          
-          <div className="flex items-center gap-4 mb-6">
-            {beneficiary.profilePhotoUrl ? (
-              <img
-                src={beneficiary.profilePhotoUrl}
-                alt={beneficiary.fullName}
-                className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg"
-              />
-            ) : (
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg">
-                <User className="w-10 h-10 text-white" />
-              </div>
-            )}
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{beneficiary.fullName}</h1>
-              <p className="text-gray-600">
-                {beneficiary.nationalId || 'No National ID'} • {beneficiary.mobileNumber}
-              </p>
-            </div>
-            <div className="ml-auto">
-              <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                beneficiary.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-              }`}>
-                {beneficiary.isActive ? 'Active' : 'Inactive'}
-              </span>
-            </div>
-          </div>
-        </div>
-        
-        {/* Tabs */}
-        <div className="bg-white rounded-lg shadow-sm mb-6 p-1">
-          <div className="flex gap-2">
-            {tabs.map((tab) => {
-              const Icon = tab.icon
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === tab.id
-                      ? 'bg-indigo-500 text-white shadow-md'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {tab.label}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-        
-        {/* Tab Content */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          {activeTab === 'info' && <PersonalInfoTab beneficiary={beneficiary} />}
-          {activeTab === 'family' && <FamilyMembersTab beneficiaryId={beneficiaryId} />}
-          {activeTab === 'documents' && <DocumentsTab beneficiaryId={beneficiaryId} />}
-        </div>
-      </div>
-    </div>
-  )
-}
+  const hasGeoLocation =
+    beneficiary.latitude !== null &&
+    beneficiary.latitude !== undefined &&
+    beneficiary.latitude !== '' &&
+    beneficiary.longitude !== null &&
+    beneficiary.longitude !== undefined &&
+    beneficiary.longitude !== ''
 
-function PersonalInfoTab({ beneficiary }) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
-        
-        <div className="flex items-start gap-3">
-          <User className="w-5 h-5 text-gray-400 mt-0.5" />
-          <div>
-            <p className="text-xs text-gray-500">Full Name</p>
-            <p className="font-medium">{beneficiary.fullName}</p>
-          </div>
-        </div>
-        
-        <div className="flex items-start gap-3">
-          <User className="w-5 h-5 text-gray-400 mt-0.5" />
-          <div>
-            <p className="text-xs text-gray-500">Mother Name</p>
-            <p className="font-medium">{beneficiary.motherName || '-'}</p>
-          </div>
-        </div>
-        
-        <div className="flex items-start gap-3">
-          <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
-          <div>
-            <p className="text-xs text-gray-500">Date of Birth</p>
-            <p className="font-medium">
-              {beneficiary.dateOfBirth 
-                ? new Date(beneficiary.dateOfBirth).toLocaleDateString()
-                : '-'
-              }
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex items-start gap-3">
-          <User className="w-5 h-5 text-gray-400 mt-0.5" />
-          <div>
-            <p className="text-xs text-gray-500">National ID</p>
-            <p className="font-medium font-mono text-sm">{beneficiary.nationalId || '-'}</p>
-          </div>
-        </div>
-        
-        <div className="flex items-start gap-3">
-          <User className="w-5 h-5 text-gray-400 mt-0.5" />
-          <div>
-            <p className="text-xs text-gray-500">Gender</p>
-            <p className="font-medium">{beneficiary.genderCodeValueId || '-'}</p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-        
-        <div className="flex items-start gap-3">
-          <Phone className="w-5 h-5 text-gray-400 mt-0.5" />
-          <div>
-            <p className="text-xs text-gray-500">Mobile</p>
-            <p className="font-medium font-mono">{beneficiary.mobileNumber}</p>
-          </div>
-        </div>
-        
-        <div className="flex items-start gap-3">
-          <Mail className="w-5 h-5 text-gray-400 mt-0.5" />
-          <div>
-            <p className="text-xs text-gray-500">Email</p>
-            <p className="font-medium">{beneficiary.email || '-'}</p>
-          </div>
-        </div>
-        
-        <div className="flex items-start gap-3">
-          <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
-          <div>
-            <p className="text-xs text-gray-500">Address</p>
-            <p className="font-medium">{beneficiary.address || '-'}</p>
-          </div>
-        </div>
-        
-        {beneficiary.latitude && beneficiary.longitude && (
-          <div className="flex items-start gap-3">
-            <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
-            <div>
-              <p className="text-xs text-gray-500">Location</p>
-              <p className="font-medium text-sm font-mono">
-                {beneficiary.latitude.toFixed(6)}, {beneficiary.longitude.toFixed(6)}
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-      
-      <div className="md:col-span-2 border-t pt-6 mt-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <p className="text-xs text-gray-500">Preferred Language</p>
-            <p className="font-medium">{beneficiary.preferredLanguageCodeValueId || '-'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">Registration Status</p>
-            <p className="font-medium">{beneficiary.registrationStatusCodeValueId || '-'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">Created At</p>
-            <p className="font-medium text-sm">
-              {beneficiary.createdAt 
-                ? new Date(beneficiary.createdAt).toLocaleString()
-                : '-'
-              }
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
+  const beneficiaryLocationLink = hasGeoLocation
+    ? `https://www.google.com/maps?q=${beneficiary.latitude},${beneficiary.longitude}`
+    : null
 
-function FamilyMembersTab({ beneficiaryId }) {
-  const [loading, setLoading] = useState(true)
-  const [members, setMembers] = useState([])
-  const [showAddForm, setShowAddForm] = useState(false)
-  
-  useEffect(() => {
-    loadMembers()
-  }, [beneficiaryId])
-  
-  const loadMembers = async () => {
+  const formatDate = (value, options) => {
+    if (!value) return '—'
     try {
-      setLoading(true)
-      const response = await api.get(
-        `/appointment-service/api/family-members/beneficiary/${beneficiaryId}`
-      )
-      setMembers(response.data || [])
+      return new Date(value).toLocaleDateString(undefined, options)
     } catch (error) {
-      console.error('Failed to load family members:', error)
-      toast.error('Failed to load family members')
-    } finally {
-      setLoading(false)
+      return value
     }
   }
-  
-  const handleDelete = async (familyMemberId) => {
-    if (!confirm('Are you sure you want to delete this family member?')) return
-    
+
+  const formatDateTime = (value) => {
+    if (!value) return '—'
     try {
-      await api.delete(`/appointment-service/api/family-members/${familyMemberId}`)
-      toast.success('Family member deleted successfully')
-      loadMembers()
+      return new Date(value).toLocaleString()
     } catch (error) {
-      console.error('Failed to delete family member:', error)
-      toast.error('Failed to delete family member')
+      return value
     }
   }
-  
-  if (loading) {
-    return (
-      <div className="flex justify-center py-8">
-        <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
-      </div>
-    )
-  }
+
+  const heroFields = [
+    {
+      id: 'gender',
+      label: 'Gender',
+      value:
+        genderLabelMap[beneficiary.genderCodeValueId] ||
+        beneficiary.genderCodeValueId ||
+        '—',
+    },
+    {
+      id: 'birth',
+      label: 'Date of Birth',
+      value: formatDate(beneficiary.dateOfBirth),
+    },
+    {
+      id: 'nationalId',
+      label: 'National ID',
+      value: beneficiary.nationalId || '—',
+      mono: true,
+    },
+    {
+      id: 'mobile',
+      label: 'Mobile Number',
+      value: beneficiary.mobileNumber || '—',
+      mono: true,
+    },
+    {
+      id: 'email',
+      label: 'Email Address',
+      value: beneficiary.email || '—',
+    },
+    {
+      id: 'language',
+      label: 'Preferred Language',
+      value:
+        languageLabelMap[beneficiary.preferredLanguageCodeValueId] ||
+        beneficiary.preferredLanguageCodeValueId ||
+        '—',
+    },
+    {
+      id: 'registration',
+      label: 'Registration Status',
+      value: beneficiary.registrationStatusCodeValueId || '—',
+    },
+    {
+      id: 'createdAt',
+      label: 'Created At',
+      value: formatDateTime(beneficiary.createdAt),
+    },
+  ]
+
+  const contactItems = [
+    beneficiary.mobileNumber
+      ? { id: 'mobile', label: 'Mobile', value: beneficiary.mobileNumber, icon: Phone, href: 'tel:' }
+      : null,
+    beneficiary.email
+      ? { id: 'email', label: 'Email', value: beneficiary.email, icon: Mail, href: 'mailto:' }
+      : null,
+    beneficiary.address
+      ? { id: 'address', label: 'Address', value: beneficiary.address, icon: MapPin }
+      : null,
+  ].filter(Boolean)
+
+  const shortBeneficiaryId = beneficiary.beneficiaryId
+    ? String(beneficiary.beneficiaryId).slice(0, 8).toUpperCase()
+    : null
+
+  const ProfileField = ({ label, value, mono = false }) => (
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm shadow-slate-100/70">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+        {label}
+      </span>
+      <span
+        className={`mt-2 block text-base font-semibold text-slate-900 ${
+          mono ? 'font-mono tracking-tight' : ''
+        }`}
+      >
+        {value && value !== '' ? value : '—'}
+      </span>
+    </div>
+  )
   
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Family Members ({members.length})
-        </h3>
+    <div className="min-h-screen bg-slate-100">
+      <div className="mx-auto flex max-w-6xl flex-col px-4 py-10">
+        <AppointmentBreadcrumb currentPageLabel={breadcrumbLabel} />
         <button
-          onClick={() => setShowAddForm(true)}
-          className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 flex items-center gap-2"
+          onClick={() => navigate('/appointment/beneficiaries')}
+          className="flex w-fit items-center gap-2 text-sm font-semibold text-sky-600 transition-colors hover:text-sky-700"
         >
-          <UsersIcon className="w-4 h-4" />
-          Add Family Member
+          <ArrowLeft className="h-4 w-4" />
+          Back to beneficiaries
         </button>
-      </div>
-      
-      {showAddForm && (
-        <FamilyMemberForm
-          beneficiaryId={beneficiaryId}
-          onCancel={() => setShowAddForm(false)}
-          onSuccess={() => {
-            setShowAddForm(false)
-            loadMembers()
-          }}
-        />
-      )}
-      
-      {members.length === 0 && !showAddForm && (
-        <div className="text-center py-12">
-          <UsersIcon className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-          <p className="text-gray-600">No family members found</p>
-        </div>
-      )}
-      
-      {members.map((member) => (
-        <div
-          key={member.familyMemberId}
-          className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-        >
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center">
-                <User className="w-6 h-6 text-white" />
+
+        <div className="mt-6 overflow-hidden rounded-3xl bg-white shadow-xl ring-1 ring-slate-100/80">
+          <div className="bg-gradient-to-br from-white via-white to-slate-50 px-6 py-8 lg:px-10">
+            <div className="flex flex-col gap-8 lg:flex-row">
+              <div className="flex flex-col items-center gap-5 lg:w-64 lg:items-start">
+                <div className="relative">
+                  <div className="overflow-hidden rounded-full border-4 border-white shadow-xl ring-4 ring-sky-100/80">
+                    <Avatar size="lg" photoUrl={resolvedProfilePhotoUrl} />
+                  </div>
+                  <span
+                    className={`absolute bottom-3 right-3 h-3 w-3 rounded-full border-2 border-white ${
+                      beneficiary.isActive ? 'bg-emerald-500' : 'bg-slate-300'
+                    }`}
+                  />
+                </div>
+
+                <div className="flex w-full flex-col items-stretch gap-2">
+                  <button
+                    onClick={triggerProfilePhotoInput}
+                    disabled={photoUploading}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    <ImagePlus className={`h-4 w-4 ${photoUploading ? 'animate-pulse' : ''}`} />
+                    {photoUploading ? 'Uploading...' : 'Upload Photo'}
+                  </button>
+                  {beneficiary?.profilePhotoUrl && (
+                    <button
+                      onClick={handleRemoveProfilePhoto}
+                      disabled={photoUploading}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Remove Photo
+                    </button>
+                  )}
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleProfilePhotoUpload}
+                />
+
+                <div className="flex w-full flex-col gap-3">
+                  {contactItems.map((item) => {
+                    const Icon = item.icon
+                    const content = item.href ? (
+                      <a
+                        href={`${item.href}${item.value}`}
+                        className="text-sm font-semibold text-slate-900 hover:underline"
+                      >
+                        {item.value}
+                      </a>
+                    ) : (
+                      <span className="text-sm font-semibold text-slate-900">{item.value}</span>
+                    )
+
+                    return (
+                      <article
+                        key={item.id}
+                        className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 shadow-sm shadow-slate-200/60"
+                      >
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                          <Icon className="h-4.5 w-4.5" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-500">
+                            {item.label}
+                          </span>
+                          {content}
+                        </div>
+                      </article>
+                    )
+                  })}
+
+                  {beneficiaryLocationLink && (
+                    <a
+                      href={beneficiaryLocationLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-600 transition-colors hover:bg-sky-100"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      View on Google Maps
+                    </a>
+                  )}
+                </div>
               </div>
-              <div>
-                <h4 className="font-semibold text-gray-900">{member.fullName}</h4>
-                <p className="text-sm text-gray-600">
-                  {member.relationType}
-                  {member.relationDescription && ` - ${member.relationDescription}`}
-                </p>
-                {member.mobileNumber && (
-                  <p className="text-sm text-gray-500 font-mono">{member.mobileNumber}</p>
-                )}
-                {member.email && (
-                  <p className="text-sm text-gray-500">{member.email}</p>
-                )}
+
+              <div className="flex-1 space-y-6">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h1 className="text-3xl font-semibold text-slate-900">{beneficiary.fullName}</h1>
+                    {shortBeneficiaryId && (
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
+                        ID {shortBeneficiaryId}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-500">
+                    {beneficiary.nationalId || 'No National ID'} •{' '}
+                    {beneficiary.mobileNumber || 'No mobile number saved'}
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
+                        beneficiary.isActive
+                          ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100'
+                          : 'bg-slate-100 text-slate-600 ring-1 ring-slate-200'
+                      }`}
+                    >
+                      <span className="h-2 w-2 rounded-full bg-current" />
+                      {beneficiary.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    {beneficiary.registrationStatusCodeValueId && (
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">
+                        {beneficiary.registrationStatusCodeValueId}
+                      </span>
+                    )}
+                    {beneficiary.preferredLanguageCodeValueId && (
+                      <span className="inline-flex items-center rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-600 ring-1 ring-sky-100">
+                        {beneficiary.preferredLanguageCodeValueId}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {heroFields.map((field) => (
+                    <ProfileField key={field.id} label={field.label} value={field.value} mono={field.mono} />
+                  ))}
+                </div>
+
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-lg font-semibold text-slate-900">Personal Information</h2>
+                      <p className="text-sm text-slate-500">Update identity, contact, and demographic data</p>
+                    </div>
+                    {!isEditingPersonalInfo ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingPersonalInfo(true)}
+                        className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-600"
+                      >
+                        Edit Info
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handleSavePersonalInfo}
+                          disabled={savingPersonalInfo}
+                          className="rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          {savingPersonalInfo ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelEdit}
+                          disabled={savingPersonalInfo}
+                          className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {isEditingPersonalInfo && (
+                    <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <PersonalInfoField
+                        label="Full Name"
+                        required
+                        value={personalInfoForm.fullName}
+                        error={personalInfoErrors.fullName}
+                        onChange={(value) => handlePersonalInfoChange('fullName', value)}
+                      />
+                      <PersonalInfoField
+                        label="Mother Name"
+                        value={personalInfoForm.motherName}
+                        onChange={(value) => handlePersonalInfoChange('motherName', value)}
+                      />
+                      <PersonalInfoField
+                        label="National ID"
+                        value={personalInfoForm.nationalId}
+                        onChange={(value) => handlePersonalInfoChange('nationalId', value)}
+                      />
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Gender
+                        </label>
+                        <select
+                          value={personalInfoForm.genderCodeValueId}
+                          onChange={(event) => handlePersonalInfoChange('genderCodeValueId', event.target.value)}
+                          className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                        >
+                          <option value="">Select gender</option>
+                          {genderOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Date of Birth
+                        </label>
+                        <input
+                          type="date"
+                          value={personalInfoForm.dateOfBirth}
+                          onChange={(event) => handlePersonalInfoChange('dateOfBirth', event.target.value)}
+                          className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                        />
+                        {personalInfoErrors.dateOfBirth && (
+                          <p className="mt-1 text-xs font-medium text-rose-500">{personalInfoErrors.dateOfBirth}</p>
+                        )}
+                      </div>
+                      <PersonalInfoField
+                        label="Mobile Number"
+                        required
+                        value={personalInfoForm.mobileNumber}
+                        error={personalInfoErrors.mobileNumber}
+                        onChange={(value) => handlePersonalInfoChange('mobileNumber', value)}
+                      />
+                      <PersonalInfoField
+                        label="Email"
+                        value={personalInfoForm.email}
+                        error={personalInfoErrors.email}
+                        onChange={(value) => handlePersonalInfoChange('email', value)}
+                      />
+                      <div className="md:col-span-2">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Address
+                        </label>
+                        <textarea
+                          value={personalInfoForm.address}
+                          onChange={(event) => handlePersonalInfoChange('address', event.target.value)}
+                          className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                          rows={3}
+                        />
+                        {personalInfoErrors.address && (
+                          <p className="mt-1 text-xs font-medium text-rose-500">{personalInfoErrors.address}</p>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                            Latitude
+                          </label>
+                          <button
+                            type="button"
+                            className="text-xs font-semibold text-sky-600 hover:text-sky-500"
+                            onClick={() => setShowMapPicker(true)}
+                          >
+                            Choose on map
+                          </button>
+                        </div>
+                        <input
+                          type="number"
+                          step="0.000001"
+                          value={personalInfoForm.latitude}
+                          onChange={(event) => handlePersonalInfoChange('latitude', event.target.value)}
+                          className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                        />
+                        {personalInfoErrors.latitude && (
+                          <p className="mt-1 text-xs font-medium text-rose-500">{personalInfoErrors.latitude}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Longitude
+                        </label>
+                        <input
+                          type="number"
+                          step="0.000001"
+                          value={personalInfoForm.longitude}
+                          onChange={(event) => handlePersonalInfoChange('longitude', event.target.value)}
+                          className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                        />
+                        {personalInfoErrors.longitude && (
+                          <p className="mt-1 text-xs font-medium text-rose-500">{personalInfoErrors.longitude}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Preferred Language
+                        </label>
+                        <select
+                          value={personalInfoForm.preferredLanguageCodeValueId}
+                          onChange={(event) => handlePersonalInfoChange('preferredLanguageCodeValueId', event.target.value)}
+                          className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                        >
+                          <option value="">Select language</option>
+                          {languageOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        {personalInfoErrors.preferredLanguageCodeValueId && (
+                          <p className="mt-1 text-xs font-medium text-rose-500">
+                            {personalInfoErrors.preferredLanguageCodeValueId}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          Registration Status
+                        </label>
+                        <select
+                          value={personalInfoForm.registrationStatusCodeValueId}
+                          onChange={(event) => handlePersonalInfoChange('registrationStatusCodeValueId', event.target.value)}
+                          className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                        >
+                          <option value="">Select status</option>
+                          <option value="QUICK">Quick Registration</option>
+                          <option value="COMPLETE">Complete Registration</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <label className="text-sm font-semibold text-slate-700">
+                          Active Beneficiary
+                        </label>
+                        <input
+                          type="checkbox"
+                          checked={personalInfoForm.isActive}
+                          onChange={(event) => handlePersonalInfoChange('isActive', event.target.checked)}
+                          className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {member.isEmergencyContact && (
-                <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
-                  Emergency Contact
-                </span>
-              )}
-              <span className={`px-2 py-1 text-xs rounded-full ${
-                member.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-              }`}>
-                {member.isActive ? 'Active' : 'Inactive'}
-              </span>
-              <button
-                onClick={() => handleDelete(member.familyMemberId)}
-                className="px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded"
-              >
-                Delete
-              </button>
             </div>
           </div>
+
+          <div className="border-t border-slate-200 bg-slate-50/70 px-6 lg:px-10">
+            <nav className="flex flex-wrap gap-2 py-3">
+              {tabs.map((tab) => {
+                const Icon = tab.icon
+                const isActive = activeTab === tab.id
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`group inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition-all ${
+                      isActive
+                        ? 'bg-sky-500 text-white shadow-sm shadow-sky-200'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-500'}`} />
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </nav>
+          </div>
+
+          <div className="bg-white px-6 py-8 lg:px-10">
+            {activeTab === 'info' && <BeneficiaryPersonalInfoTab beneficiary={beneficiary} />}
+            {activeTab === 'family' && <BeneficiaryFamilyTab beneficiaryId={beneficiaryId} />}
+            {activeTab === 'documents' && <BeneficiaryDocumentsTab beneficiaryId={beneficiaryId} />}
+            {activeTab === 'appointments' && <BeneficiaryAppointmentsTab beneficiaryId={beneficiaryId} />}
+          </div>
         </div>
-      ))}
+      </div>
+      <MapPickerModal
+        open={showMapPicker}
+        onClose={() => setShowMapPicker(false)}
+        initialLat={parseCoordinateOrFallback(personalInfoForm.latitude, beneficiary.latitude ?? 33.5138)}
+        initialLng={parseCoordinateOrFallback(personalInfoForm.longitude, beneficiary.longitude ?? 36.2765)}
+        onPick={handleMapPick}
+      />
     </div>
   )
 }
 
-function FamilyMemberForm({ beneficiaryId, onCancel, onSuccess }) {
-  const [form, setForm] = useState({
-    beneficiaryId,
-    fullName: '',
-    motherName: '',
-    nationalId: '',
-    dateOfBirth: '',
-    relationType: '',
-    relationDescription: '',
-    mobileNumber: '',
-    email: '',
-    genderCodeValueId: '',
-    isEmergencyContact: false,
-    canBookAppointments: false,
-  })
-  const [busy, setBusy] = useState(false)
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setBusy(true)
-    try {
-      await api.post('/appointment-service/api/family-members', form)
-      toast.success('Family member added successfully')
-      onSuccess()
-    } catch (error) {
-      console.error('Failed to create family member:', error)
-      toast.error(error.response?.data?.message || 'Failed to create family member')
-    } finally {
-      setBusy(false)
-    }
-  }
-
+function PersonalInfoField({ label, required = false, value, onChange, error }) {
   return (
-    <div className="border border-indigo-200 rounded-lg p-4 bg-indigo-50">
-      <h4 className="font-semibold text-gray-900 mb-4">Add Family Member</h4>
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Full Name *</label>
-            <input
-              type="text"
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-              value={form.fullName}
-              onChange={e => setForm({...form, fullName: e.target.value})}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Relation Type *</label>
-            <select
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-              value={form.relationType}
-              onChange={e => setForm({...form, relationType: e.target.value})}
-            >
-              <option value="">Select</option>
-              <option value="SPOUSE">Spouse</option>
-              <option value="CHILD">Child</option>
-              <option value="PARENT">Parent</option>
-              <option value="SIBLING">Sibling</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Date of Birth</label>
-            <input
-              type="date"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-              value={form.dateOfBirth}
-              onChange={e => setForm({...form, dateOfBirth: e.target.value})}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Mobile</label>
-            <input
-              type="text"
-              placeholder="+963912345678"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-              value={form.mobileNumber}
-              onChange={e => setForm({...form, mobileNumber: e.target.value})}
-            />
-          </div>
-        </div>
-        {form.relationType === 'OTHER' && (
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Relation Description</label>
-            <input
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-              value={form.relationDescription}
-              onChange={e => setForm({...form, relationDescription: e.target.value})}
-            />
-          </div>
-        )}
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={form.isEmergencyContact}
-              onChange={e => setForm({...form, isEmergencyContact: e.target.checked})}
-            />
-            Emergency Contact
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={form.canBookAppointments}
-              onChange={e => setForm({...form, canBookAppointments: e.target.checked})}
-            />
-            Can Book Appointments
-          </label>
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            disabled={busy}
-            className="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 disabled:opacity-50"
-          >
-            {busy ? 'Adding...' : 'Add Member'}
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={busy}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
-    </div>
-  )
-}
-
-function DocumentsTab({ beneficiaryId }) {
-  const [loading, setLoading] = useState(true)
-  const [documents, setDocuments] = useState([])
-  const [showAddForm, setShowAddForm] = useState(false)
-  
-  useEffect(() => {
-    loadDocuments()
-  }, [beneficiaryId])
-  
-  const loadDocuments = async () => {
-    try {
-      setLoading(true)
-      const response = await api.get(
-        `/appointment-service/api/beneficiary-documents/beneficiary/${beneficiaryId}`
-      )
-      setDocuments(response.data || [])
-    } catch (error) {
-      console.error('Failed to load documents:', error)
-      toast.error('Failed to load documents')
-    } finally {
-      setLoading(false)
-    }
-  }
-  
-  const handleDelete = async (documentId) => {
-    if (!confirm('Are you sure you want to delete this document?')) return
-    
-    try {
-      await api.delete(`/appointment-service/api/beneficiary-documents/${documentId}`)
-      toast.success('Document deleted successfully')
-      loadDocuments()
-    } catch (error) {
-      console.error('Failed to delete document:', error)
-      toast.error('Failed to delete document')
-    }
-  }
-  
-  if (loading) {
-    return (
-      <div className="flex justify-center py-8">
-        <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
-      </div>
-    )
-  }
-  
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Documents ({documents.length})
-        </h3>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 flex items-center gap-2"
-        >
-          <FileText className="w-4 h-4" />
-          Upload Document
-        </button>
-      </div>
-      
-      {showAddForm && (
-        <DocumentForm
-          beneficiaryId={beneficiaryId}
-          onCancel={() => setShowAddForm(false)}
-          onSuccess={() => {
-            setShowAddForm(false)
-            loadDocuments()
-          }}
-        />
-      )}
-      
-      {documents.length === 0 && !showAddForm && (
-        <div className="text-center py-12">
-          <FileText className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-          <p className="text-gray-600">No documents found</p>
-        </div>
-      )}
-      
-      {documents.map((doc) => (
-        <div
-          key={doc.documentId}
-          className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-        >
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-green-400 to-blue-400 flex items-center justify-center">
-                <FileText className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h4 className="font-semibold text-gray-900">{doc.documentName}</h4>
-                <p className="text-sm text-gray-600">{doc.documentType}</p>
-                {doc.documentDescription && (
-                  <p className="text-sm text-gray-500 mt-1">{doc.documentDescription}</p>
-                )}
-                <p className="text-xs text-gray-400 mt-1">
-                  {doc.fileName} • {(doc.fileSizeBytes / 1024).toFixed(2)} KB
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={`px-2 py-1 text-xs rounded-full ${
-                doc.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-              }`}>
-                {doc.isActive ? 'Active' : 'Inactive'}
-              </span>
-              {doc.fileUrl && (
-                <a
-                  href={doc.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-indigo-600 hover:text-indigo-800"
-                >
-                  View →
-                </a>
-              )}
-              <button
-                onClick={() => handleDelete(doc.documentId)}
-                className="px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function DocumentForm({ beneficiaryId, onCancel, onSuccess }) {
-  const [form, setForm] = useState({
-    beneficiaryId,
-    documentName: '',
-    documentType: '',
-    documentDescription: '',
-    fileName: '',
-    fileUrl: '',
-    fileSizeBytes: 0,
-    isActive: true,
-  })
-  const [busy, setBusy] = useState(false)
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setBusy(true)
-    try {
-      await api.post('/appointment-service/api/beneficiary-documents', form)
-      toast.success('Document uploaded successfully')
-      onSuccess()
-    } catch (error) {
-      console.error('Failed to create document:', error)
-      toast.error(error.response?.data?.message || 'Failed to create document')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="border border-green-200 rounded-lg p-4 bg-green-50">
-      <h4 className="font-semibold text-gray-900 mb-4">Upload Document</h4>
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Document Name *</label>
-            <input
-              type="text"
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-              value={form.documentName}
-              onChange={e => setForm({...form, documentName: e.target.value})}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Document Type *</label>
-            <select
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-              value={form.documentType}
-              onChange={e => setForm({...form, documentType: e.target.value})}
-            >
-              <option value="">Select</option>
-              <option value="NATIONAL_ID">National ID</option>
-              <option value="PASSPORT">Passport</option>
-              <option value="BIRTH_CERTIFICATE">Birth Certificate</option>
-              <option value="MEDICAL_REPORT">Medical Report</option>
-              <option value="INSURANCE_CARD">Insurance Card</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </div>
-          <div className="col-span-2">
-            <label className="block text-xs font-medium text-gray-700 mb-1">File URL *</label>
-            <input
-              type="url"
-              required
-              placeholder="https://example.com/file.pdf"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-              value={form.fileUrl}
-              onChange={e => setForm({...form, fileUrl: e.target.value})}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">File Name</label>
-            <input
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-              value={form.fileName}
-              onChange={e => setForm({...form, fileName: e.target.value})}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">File Size (bytes)</label>
-            <input
-              type="number"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-              value={form.fileSizeBytes}
-              onChange={e => setForm({...form, fileSizeBytes: parseInt(e.target.value) || 0})}
-            />
-          </div>
-          <div className="col-span-2">
-            <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
-            <textarea
-              rows="2"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-              value={form.documentDescription}
-              onChange={e => setForm({...form, documentDescription: e.target.value})}
-            />
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            disabled={busy}
-            className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:opacity-50"
-          >
-            {busy ? 'Uploading...' : 'Upload Document'}
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={busy}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
+    <div>
+      <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {label} {required && <span className="text-rose-500">*</span>}
+      </label>
+      <input
+        type="text"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={`mt-2 w-full rounded-lg border px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 ${
+          error
+            ? 'border-rose-300 bg-white text-slate-900 focus:border-rose-400 focus:ring-rose-100'
+            : 'border-slate-200 bg-white text-slate-900 focus:border-sky-400 focus:ring-sky-100'
+        }`}
+      />
+      {error && <p className="mt-1 text-xs font-medium text-rose-500">{error}</p>}
     </div>
   )
 }

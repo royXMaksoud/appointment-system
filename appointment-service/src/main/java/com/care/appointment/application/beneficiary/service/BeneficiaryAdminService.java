@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.util.List;
@@ -34,23 +35,31 @@ public class BeneficiaryAdminService implements SaveUseCase, UpdateUseCase, Load
     public Beneficiary saveBeneficiary(CreateBeneficiaryCommand command) {
         log.info("Creating new beneficiary with national ID: {}", command.getNationalId());
 
+        String normalizedNationalId = normalize(command.getNationalId());
+        String normalizedMobile = normalize(command.getMobileNumber());
+        String normalizedAddress = normalize(command.getAddress());
+
+        command.setNationalId(normalizedNationalId);
+        command.setMobileNumber(normalizedMobile);
+        command.setAddress(normalizedAddress);
+
         // Validate no duplicate national ID
-        if (beneficiarySearchPort.existsByNationalId(command.getNationalId())) {
-            throw new IllegalArgumentException("Beneficiary already exists with national ID: " + command.getNationalId());
+        if (StringUtils.hasText(normalizedNationalId) && beneficiarySearchPort.existsByNationalId(normalizedNationalId)) {
+            throw new IllegalArgumentException("Beneficiary already exists with national ID: " + normalizedNationalId);
         }
 
         // Validate no duplicate mobile number
-        if (beneficiarySearchPort.existsByMobileNumber(command.getMobileNumber())) {
-            throw new IllegalArgumentException("Beneficiary already exists with mobile number: " + command.getMobileNumber());
+        if (beneficiarySearchPort.existsByMobileNumber(normalizedMobile)) {
+            throw new IllegalArgumentException("Beneficiary already exists with mobile number: " + normalizedMobile);
         }
 
         Beneficiary beneficiary = Beneficiary.builder()
-                .nationalId(command.getNationalId())
+                .nationalId(normalizedNationalId)
                 .fullName(command.getFullName())
                 .motherName(command.getMotherName())
-                .mobileNumber(command.getMobileNumber())
+                .mobileNumber(normalizedMobile)
                 .email(command.getEmail())
-                .address(command.getAddress())
+                .address(normalizedAddress)
                 .latitude(command.getLatitude())
                 .longitude(command.getLongitude())
                 .dateOfBirth(command.getDateOfBirth())
@@ -79,16 +88,34 @@ public class BeneficiaryAdminService implements SaveUseCase, UpdateUseCase, Load
             throw new IllegalArgumentException("Cannot update deleted beneficiary");
         }
 
-        existing.setNationalId(command.getNationalId());
+        String normalizedNationalId = normalize(command.getNationalId());
+        String normalizedMobile = normalize(command.getMobileNumber());
+        String normalizedAddress = normalize(command.getAddress());
+
+        if (StringUtils.hasText(normalizedNationalId)) {
+            beneficiarySearchPort.findByNationalId(normalizedNationalId)
+                    .filter(dup -> !dup.getBeneficiaryId().equals(existing.getBeneficiaryId()))
+                    .ifPresent(dup -> {
+                        throw new IllegalArgumentException("Another beneficiary already uses national ID: " + normalizedNationalId);
+                    });
+        }
+
+        beneficiarySearchPort.findByMobileNumber(normalizedMobile)
+                .filter(dup -> !dup.getBeneficiaryId().equals(existing.getBeneficiaryId()))
+                .ifPresent(dup -> {
+                    throw new IllegalArgumentException("Another beneficiary already uses mobile number: " + normalizedMobile);
+                });
+
+        existing.setNationalId(normalizedNationalId);
         existing.setFullName(command.getFullName());
         existing.setMotherName(command.getMotherName());
-        existing.setMobileNumber(command.getMobileNumber());
+        existing.setMobileNumber(normalizedMobile);
         existing.setEmail(command.getEmail());
-        existing.setAddress(command.getAddress());
+        existing.setAddress(normalizedAddress);
         existing.setLatitude(command.getLatitude());
         existing.setLongitude(command.getLongitude());
-        if (command.getDateOfBirth() != null) existing.setDateOfBirth(command.getDateOfBirth());
-        if (command.getGenderCodeValueId() != null) existing.setGenderCodeValueId(command.getGenderCodeValueId());
+        existing.setDateOfBirth(command.getDateOfBirth());
+        existing.setGenderCodeValueId(command.getGenderCodeValueId());
         if (command.getProfilePhotoUrl() != null) existing.setProfilePhotoUrl(command.getProfilePhotoUrl());
         if (command.getRegistrationStatusCodeValueId() != null) existing.setRegistrationStatusCodeValueId(command.getRegistrationStatusCodeValueId());
         if (command.getPreferredLanguageCodeValueId() != null) existing.setPreferredLanguageCodeValueId(command.getPreferredLanguageCodeValueId());
@@ -106,6 +133,17 @@ public class BeneficiaryAdminService implements SaveUseCase, UpdateUseCase, Load
     public Optional<Beneficiary> getBeneficiaryById(UUID beneficiaryId) {
         log.debug("Loading beneficiary by ID: {}", beneficiaryId);
         return beneficiaryCrudPort.findById(beneficiaryId);
+    }
+
+    public Beneficiary updateProfilePhoto(UUID beneficiaryId, String storagePath) {
+        log.info("Updating profile photo for beneficiary: {}", beneficiaryId);
+        Beneficiary existing = beneficiaryCrudPort.findById(beneficiaryId)
+                .orElseThrow(() -> new IllegalArgumentException("Beneficiary not found with ID: " + beneficiaryId));
+
+        existing.setProfilePhotoUrl(storagePath);
+        Beneficiary updated = beneficiaryCrudPort.update(existing);
+        log.info("Profile photo updated for beneficiary: {}", beneficiaryId);
+        return updated;
     }
 
     @Override
@@ -207,6 +245,14 @@ public class BeneficiaryAdminService implements SaveUseCase, UpdateUseCase, Load
         private long totalBeneficiaries;
         private long activeBeneficiaries;
         private Instant lastUpdatedAt;
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }
 

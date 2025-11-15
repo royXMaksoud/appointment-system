@@ -26,7 +26,11 @@ import java.util.UUID;
         @Index(name = "ix_appt_beneficiaries_mobile_dob", columnList = "mobile_number, date_of_birth"),
         @Index(name = "ix_appt_beneficiaries_gender", columnList = "gender_code_value_id"),
         @Index(name = "ix_appt_beneficiaries_reg_status", columnList = "registration_status_code_value_id"),
-        @Index(name = "ix_appt_beneficiaries_pref_lang", columnList = "preferred_language_code_value_id")
+        @Index(name = "ix_appt_beneficiaries_pref_lang", columnList = "preferred_language_code_value_id"),
+        @Index(name = "ix_appt_beneficiaries_mobile_app", columnList = "has_installed_mobile_app"),
+        @Index(name = "ix_appt_beneficiaries_device", columnList = "device_id"),
+        @Index(name = "ix_appt_beneficiaries_verification", columnList = "verification_status"),
+        @Index(name = "ix_appt_beneficiaries_active_appointments", columnList = "total_active_appointments")
     }
 )
 @Getter @Setter
@@ -109,10 +113,32 @@ public class BeneficiaryEntity {
     @Column(name = "row_version")
     private Long rowVersion;
 
+    // Mobile App Tracking & Notifications
+    @Column(name = "has_installed_mobile_app")
+    private Boolean hasInstalledMobileApp;
+
+    @Column(name = "last_mobile_app_sync")
+    private Instant lastMobileAppSync;
+
+    @Column(name = "device_id", length = 500)
+    private String deviceId;
+
+    @Column(name = "preferred_notification_method", length = 20)
+    private String preferredNotificationMethod; // SMS, PUSH, EMAIL
+
+    @Column(name = "verification_status", length = 20)
+    private String verificationStatus; // VERIFIED, UNVERIFIED
+
+    @Column(name = "total_active_appointments")
+    private Integer totalActiveAppointments;
+
     @PrePersist
     void prePersist() {
         if (isActive == null) isActive = Boolean.TRUE;
         if (isDeleted == null) isDeleted = Boolean.FALSE;
+        if (hasInstalledMobileApp == null) hasInstalledMobileApp = Boolean.FALSE;
+        if (verificationStatus == null) verificationStatus = "UNVERIFIED";
+        if (totalActiveAppointments == null) totalActiveAppointments = 0;
     }
 }
 

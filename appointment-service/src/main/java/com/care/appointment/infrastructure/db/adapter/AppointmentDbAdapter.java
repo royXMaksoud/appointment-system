@@ -45,6 +45,14 @@ public class AppointmentDbAdapter implements AppointmentCrudPort, AppointmentSea
     }
 
     @Override
+    public Optional<Appointment> findByAppointmentCode(String appointmentCode) {
+        if (appointmentCode == null || appointmentCode.isBlank()) {
+            return Optional.empty();
+        }
+        return repository.findByAppointmentCode(appointmentCode).map(mapper::toDomain);
+    }
+
+    @Override
     public void deleteById(UUID id) {
         repository.deleteById(id);
     }
@@ -53,6 +61,11 @@ public class AppointmentDbAdapter implements AppointmentCrudPort, AppointmentSea
     public Page<Appointment> search(FilterRequest filter, Pageable pageable) {
         Specification<AppointmentEntity> spec = buildSpecification(filter);
         return repository.findAll(spec, pageable).map(mapper::toDomain);
+    }
+
+    @Override
+    public Page<Appointment> findByBeneficiaryId(UUID beneficiaryId, Pageable pageable) {
+        return repository.findByBeneficiaryId(beneficiaryId, pageable).map(mapper::toDomain);
     }
 
     private Specification<AppointmentEntity> buildSpecification(FilterRequest filter) {

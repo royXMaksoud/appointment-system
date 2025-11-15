@@ -13,11 +13,7 @@ import java.util.UUID;
         unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface BeneficiaryDocumentWebMapper {
 
-    CreateBeneficiaryDocumentCommand toCreateCommand(BeneficiaryDocumentDTO request);
-
-    @Mapping(target = "documentId", source = "documentId")
-    UpdateBeneficiaryDocumentCommand toUpdateCommand(UUID documentId, BeneficiaryDocumentDTO request);
-
+    @Mapping(target = "documentTypeId", source = "documentTypeCodeValueId")
     BeneficiaryDocumentDTO toDTO(BeneficiaryDocument domain);
 }
 

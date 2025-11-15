@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -18,9 +17,7 @@ public interface BeneficiaryDocumentRepository extends
     
     List<BeneficiaryDocumentEntity> findByBeneficiaryIdAndIsActiveTrueAndIsDeletedFalse(UUID beneficiaryId);
     
-    List<BeneficiaryDocumentEntity> findByBeneficiaryIdAndDocumentType(UUID beneficiaryId, String documentType);
-    
-    Optional<BeneficiaryDocumentEntity> findByStorageKey(String storageKey);
+    List<BeneficiaryDocumentEntity> findByBeneficiaryIdAndDocumentTypeCodeValueId(UUID beneficiaryId, UUID documentTypeCodeValueId);
     
     long countByBeneficiaryId(UUID beneficiaryId);
 }

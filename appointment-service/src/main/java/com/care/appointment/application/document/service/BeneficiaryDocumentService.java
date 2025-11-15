@@ -3,10 +3,10 @@ package com.care.appointment.application.document.service;
 import com.care.appointment.application.document.command.CreateBeneficiaryDocumentCommand;
 import com.care.appointment.application.document.command.UpdateBeneficiaryDocumentCommand;
 import com.care.appointment.application.document.mapper.BeneficiaryDocumentDomainMapper;
+import com.care.appointment.application.common.exception.NotFoundException;
 import com.care.appointment.domain.model.BeneficiaryDocument;
 import com.care.appointment.domain.ports.in.document.BeneficiaryDocumentCrudPort;
 import com.care.appointment.domain.ports.in.document.BeneficiaryDocumentSearchPort;
-import com.sharedlib.core.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -66,9 +66,9 @@ public class BeneficiaryDocumentService {
     }
 
     @Transactional(readOnly = true)
-    public List<BeneficiaryDocument> getByBeneficiaryIdAndType(UUID beneficiaryId, String documentType) {
-        log.debug("Getting {} documents for beneficiary: {}", documentType, beneficiaryId);
-        return searchPort.findByBeneficiaryIdAndDocumentType(beneficiaryId, documentType);
+    public List<BeneficiaryDocument> getByBeneficiaryIdAndType(UUID beneficiaryId, UUID documentTypeId) {
+        log.debug("Getting documents of type {} for beneficiary: {}", documentTypeId, beneficiaryId);
+        return searchPort.findByBeneficiaryIdAndDocumentType(beneficiaryId, documentTypeId);
     }
 
     public void delete(UUID documentId) {

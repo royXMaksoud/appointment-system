@@ -14,6 +14,7 @@ public interface BeneficiarySearchPort {
     Page<Beneficiary> search(FilterRequest filter, Pageable pageable);
     boolean existsByNationalId(String nationalId);
     boolean existsByMobileNumber(String mobileNumber);
+    Optional<Beneficiary> findByMobileNumber(String mobileNumber);
     
     /**
      * Finds beneficiary by national ID.

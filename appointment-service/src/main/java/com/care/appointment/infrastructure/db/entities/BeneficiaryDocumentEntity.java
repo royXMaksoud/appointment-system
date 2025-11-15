@@ -39,16 +39,28 @@ public class BeneficiaryDocumentEntity {
     private String documentName;
 
     @Column(name = "document_type", nullable = false, length = 50)
-    private String documentType;
+    private String legacyDocumentType;
+
+    @Column(name = "document_type_code_value_id", nullable = false)
+    private UUID documentTypeCodeValueId;
+
+    @Column(name = "document_type_code", length = 100)
+    private String documentTypeCode;
 
     @Column(name = "document_description", length = 500)
     private String documentDescription;
 
-    @Column(name = "file_url", nullable = false, length = 500)
-    private String fileUrl;
-
     @Column(name = "file_name", nullable = false, length = 200)
     private String fileName;
+
+    @Column(name = "file_extension", length = 20)
+    private String fileExtension;
+
+    @Column(name = "file_path", nullable = false, length = 500)
+    private String filePath;
+
+    @Column(name = "file_url", nullable = false, length = 500)
+    private String fileUrl;
 
     @Column(name = "file_size_bytes")
     private Long fileSizeBytes;
@@ -56,19 +68,13 @@ public class BeneficiaryDocumentEntity {
     @Column(name = "mime_type", length = 100)
     private String mimeType;
 
-    @Column(name = "storage_provider", length = 50)
-    private String storageProvider;
-
-    @Column(name = "storage_key", length = 500)
-    private String storageKey;
-
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
 
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted;
 
-    @Column(name = "created_by_user_id")
+    @Column(name = "created_by_user_id", nullable = false)
     private UUID createdById;
 
     @CreationTimestamp
@@ -90,6 +96,12 @@ public class BeneficiaryDocumentEntity {
     void prePersist() {
         if (isActive == null) isActive = Boolean.TRUE;
         if (isDeleted == null) isDeleted = Boolean.FALSE;
+        if (legacyDocumentType == null || legacyDocumentType.isBlank()) {
+            legacyDocumentType = documentTypeCode != null ? documentTypeCode : "UNKNOWN";
+        }
+        if (fileUrl == null || fileUrl.isBlank()) {
+            fileUrl = filePath;
+        }
     }
 }
 

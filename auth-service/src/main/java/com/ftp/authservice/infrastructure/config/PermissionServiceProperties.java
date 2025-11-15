@@ -13,6 +13,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class PermissionServiceProperties {
     private String baseUrl;             // e.g. http://localhost:6062 or the internal AWS url
     private String userPermissionsPath; // e.g. /api/permissions/users
+    private String internalKey;         // e.g. dev-internal-key for inter-service auth
     private int connectTimeoutMs;       // client connection timeout
     private int readTimeoutMs;          // read timeout
 }

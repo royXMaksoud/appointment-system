@@ -2,6 +2,7 @@ package com.care.appointment.infrastructure.db.repositories;
 
 import com.care.appointment.infrastructure.db.entities.AppointmentActionTypeLangEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -9,11 +10,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface AppointmentActionTypeLangRepository extends JpaRepository<AppointmentActionTypeLangEntity, UUID> {
+public interface AppointmentActionTypeLangRepository extends JpaRepository<AppointmentActionTypeLangEntity, UUID>,
+        JpaSpecificationExecutor<AppointmentActionTypeLangEntity> {
     
     List<AppointmentActionTypeLangEntity> findByActionTypeId(UUID actionTypeId);
     
-    Optional<AppointmentActionTypeLangEntity> findByActionTypeIdAndLanguageCode(
+    Optional<AppointmentActionTypeLangEntity> findByActionTypeIdAndLanguageCodeIgnoreCase(
         UUID actionTypeId, String languageCode);
     
     List<AppointmentActionTypeLangEntity> findByLanguageCodeAndIsActiveTrue(String languageCode);

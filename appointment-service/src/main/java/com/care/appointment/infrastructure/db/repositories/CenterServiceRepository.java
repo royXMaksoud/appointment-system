@@ -15,8 +15,12 @@ import java.util.UUID;
 public interface CenterServiceRepository extends 
         JpaRepository<CenterServiceEntity, UUID>,
         JpaSpecificationExecutor<CenterServiceEntity> {
-    
+
+    List<CenterServiceEntity> findByOrganizationBranchIdInAndIsActiveTrue(List<UUID> organizationBranchIds);
+
     List<CenterServiceEntity> findByOrganizationBranchIdAndIsActiveTrue(UUID organizationBranchId);
+
+    List<CenterServiceEntity> findByOrganizationBranchId(UUID organizationBranchId);
     
     List<CenterServiceEntity> findByServiceTypeIdAndIsActiveTrue(UUID serviceTypeId);
     

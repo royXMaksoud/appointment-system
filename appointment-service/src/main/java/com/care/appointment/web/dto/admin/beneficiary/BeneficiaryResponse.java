@@ -3,6 +3,7 @@ package com.care.appointment.web.dto.admin.beneficiary;
 import lombok.*;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Data
@@ -20,6 +21,13 @@ public class BeneficiaryResponse {
     private String address;
     private Double latitude;
     private Double longitude;
+    private LocalDate dateOfBirth;
+    private UUID genderCodeValueId;
+    private String profilePhotoUrl;
+    private UUID registrationStatusCodeValueId;
+    private UUID preferredLanguageCodeValueId;
+    private Instant registrationCompletedAt;
+    private UUID registrationCompletedByUserId;
     private Boolean isActive;
     private Boolean isDeleted;
     private UUID createdById;

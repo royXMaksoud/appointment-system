@@ -10,9 +10,7 @@ public interface BeneficiaryDocumentSearchPort {
     
     List<BeneficiaryDocument> findActiveByBeneficiaryId(UUID beneficiaryId);
     
-    List<BeneficiaryDocument> findByBeneficiaryIdAndDocumentType(UUID beneficiaryId, String documentType);
-    
-    Optional<BeneficiaryDocument> findByStorageKey(String storageKey);
+    List<BeneficiaryDocument> findByBeneficiaryIdAndDocumentType(UUID beneficiaryId, UUID documentTypeCodeValueId);
     
     long countByBeneficiaryId(UUID beneficiaryId);
 }

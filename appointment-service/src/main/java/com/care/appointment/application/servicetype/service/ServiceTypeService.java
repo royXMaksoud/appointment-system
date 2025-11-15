@@ -85,10 +85,9 @@ public class ServiceTypeService implements SaveUseCase, UpdateUseCase, LoadUseCa
         
         ServiceType existing = crudPort.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Service type not found: " + id));
-        
-        existing.setIsDeleted(true);
-        existing.setIsActive(false);
-        crudPort.update(existing);
+
+        // Perform hard delete
+        crudPort.deleteById(existing.getServiceTypeId());
     }
     
     @Override

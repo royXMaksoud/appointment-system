@@ -6,6 +6,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -26,8 +27,11 @@ import java.util.UUID;
         @Index(name = "ix_center_services_active", columnList = "is_active")
     }
 )
-@Getter @Setter
-@Builder @NoArgsConstructor @AllArgsConstructor
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class CenterServiceEntity {
 
     @Id
@@ -41,6 +45,9 @@ public class CenterServiceEntity {
 
     @Column(name = "service_type_id", nullable = false)
     private UUID serviceTypeId;
+
+    @Column(name = "cost", precision = 12, scale = 2)
+    private BigDecimal cost;
 
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
@@ -65,7 +72,19 @@ public class CenterServiceEntity {
 
     @PrePersist
     void prePersist() {
-        if (isActive == null) isActive = Boolean.TRUE;
+        if (isActive == null) {
+            isActive = Boolean.TRUE;
+        }
+        if (cost == null) {
+            cost = BigDecimal.ZERO;
+        }
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        if (cost == null) {
+            cost = BigDecimal.ZERO;
+        }
     }
 }
 

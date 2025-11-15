@@ -45,6 +45,12 @@ jobs:
           cd shared-libs
           mvn clean install -DskipTests -B
           cd ..
+      # 🧱 Build and install shared library locally before building services
+      - name: Install shared library locally
+        run: |
+          cd shared-libs
+          mvn clean install -Dmaven.test.skip=true -B
+          cd ..
 
       # 5️⃣ Build all microservices
       - name: Build microservices

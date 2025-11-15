@@ -4,11 +4,11 @@ import com.care.appointment.application.servicetype.command.CreateServiceTypeCom
 import com.care.appointment.application.servicetype.command.UpdateServiceTypeCommand;
 import com.care.appointment.domain.model.ServiceType;
 import com.care.appointment.domain.ports.in.servicetype.*;
-import com.care.appointment.infrastructure.db.config.ServiceTypeFilterConfig;
-import com.care.appointment.infrastructure.db.entities.ServiceTypeEntity;
+import com.care.appointment.application.servicetype.service.ServiceTypeTreeQueryService;
 import com.care.appointment.web.dto.admin.servicetype.CreateServiceTypeRequest;
 import com.care.appointment.web.dto.admin.servicetype.ServiceTypeResponse;
 import com.care.appointment.web.dto.admin.servicetype.UpdateServiceTypeRequest;
+import com.care.appointment.web.dto.admin.servicetype.ServiceTypeTreeNodeDTO;
 import com.care.appointment.web.mapper.ServiceTypeWebMapper;
 import com.sharedlib.core.filter.FilterRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +29,7 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Objects;
 
 /**
  * REST Controller for Service Type Administration
@@ -55,6 +56,7 @@ public class ServiceTypeController {
     private final LoadUseCase loadServiceTypeUseCase;
     private final DeleteUseCase deleteServiceTypeUseCase;
     private final LoadAllUseCase loadAllServiceTypesUseCase;
+    private final ServiceTypeTreeQueryService serviceTypeTreeQueryService;
     private final ServiceTypeWebMapper mapper;
     
     /**
@@ -69,9 +71,8 @@ public class ServiceTypeController {
         CreateServiceTypeCommand command = mapper.toCreateCommand(request);
         ServiceType created = saveServiceTypeUseCase.saveServiceType(command);
         ServiceTypeResponse body = mapper.toResponse(created);
-        return ResponseEntity
-                .created(URI.create("/api/admin/service-types/" + body.getServiceTypeId()))
-                .body(body);
+        URI location = URI.create("/api/admin/service-types/" + body.getServiceTypeId());
+        return ResponseEntity.created(Objects.requireNonNull(location)).body(body);
     }
     
     /**
@@ -180,6 +181,17 @@ public class ServiceTypeController {
                 .collect(java.util.stream.Collectors.toList());
         
         return ResponseEntity.ok(lookup);
+    }
+
+    /**
+     * Get hierarchical tree of service types (parent -> child)
+     */
+    @GetMapping("/tree")
+    @Operation(summary = "Get service type tree",
+            description = "Returns hierarchical tree of active service types for tree dropdowns")
+    @ApiResponse(responseCode = "200", description = "Service type tree retrieved successfully")
+    public ResponseEntity<java.util.List<ServiceTypeTreeNodeDTO>> getServiceTypeTree() {
+        return ResponseEntity.ok(serviceTypeTreeQueryService.getTree());
     }
 }
 

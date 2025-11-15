@@ -3,9 +3,7 @@ package com.care.appointment.web.controller.admin;
 import com.care.appointment.infrastructure.client.AccessManagementClient;
 import com.care.appointment.web.dto.OrganizationBranchDTO;
 import com.care.appointment.web.dto.OrganizationDTO;
-import com.sharedlib.core.context.CurrentUserContext;
 import com.sharedlib.core.filter.FilterRequest;
-import com.sharedlib.core.filter.FilterNormalizer;
 import com.sharedlib.core.filter.ScopeCriteria;
 import com.sharedlib.core.filter.ValueDataType;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,10 +14,14 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * REST Controller for Dropdown Data
@@ -143,6 +145,7 @@ public class DropdownController {
         }
     }
 
+
     /**
      * Extract organization branch IDs from the current user's JWT claims
      * These represent the scope values (allowed branches) for the user
@@ -151,13 +154,7 @@ public class DropdownController {
      */
     private List<UUID> extractUserScopeValues() {
         try {
-            var currentUser = CurrentUserContext.get();
-            if (currentUser == null) {
-                log.debug("No current user context available");
-                return Collections.emptyList();
-            }
-
-            Object scopeValue = currentUser.claims().get("organizationBranchIds");
+            Object scopeValue = resolveScopeClaim("organizationBranchIds");
             if (scopeValue == null) {
                 log.debug("No organizationBranchIds in user claims");
                 return Collections.emptyList();
@@ -171,6 +168,44 @@ public class DropdownController {
             log.error("Error extracting user scope values", e);
             return Collections.emptyList();
         }
+    }
+
+    private Object resolveScopeClaim(String claimKey) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            log.debug("No authentication available in security context");
+            return null;
+        }
+
+        Object claimsSource = authentication.getDetails();
+        Object claim = extractClaim(claimsSource, claimKey);
+        if (claim != null) {
+            return claim;
+        }
+
+        claimsSource = authentication.getPrincipal();
+        claim = extractClaim(claimsSource, claimKey);
+        if (claim != null) {
+            return claim;
+        }
+
+        if (authentication.getAuthorities() != null) {
+            for (var authority : authentication.getAuthorities()) {
+                claim = extractClaim(authority, claimKey);
+                if (claim != null) {
+                    return claim;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private Object extractClaim(Object source, String key) {
+        if (source instanceof Map<?, ?> map) {
+            return map.get(key);
+        }
+        return null;
     }
 
     /**
@@ -232,7 +267,6 @@ public class DropdownController {
      * @param scopeValue can be a List, Collection, String (comma-separated), or individual UUID
      * @return list of extracted UUIDs
      */
-    @SuppressWarnings("unchecked")
     private List<UUID> extractUUIDs(Object scopeValue) {
         List<UUID> result = new ArrayList<>();
 
